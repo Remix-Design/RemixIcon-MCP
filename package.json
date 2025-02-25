@@ -1,19 +1,22 @@
 {
-	"name": "mcp-server-remix-icon",
-	"version": "0.0.0",
-	"private": true,
-	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
-		"start": "wrangler dev",
-		"test": "vitest",
-		"cf-typegen": "wrangler types"
-	},
-	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.6.4",
-		"@cloudflare/workers-types": "^4.20250224.0",
-		"typescript": "^5.5.2",
-		"vitest": "~2.1.9",
-		"wrangler": "^3.109.3"
-	}
+  "name": "mcp-server-remix-icon",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "workers-mcp docgen src/index.ts && wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "test": "vitest",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.6.4",
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "typescript": "^5.5.2",
+    "vitest": "~2.1.9",
+    "wrangler": "^3.109.3"
+  },
+  "dependencies": {
+    "workers-mcp": "^0.0.13"
+  }
 }

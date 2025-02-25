@@ -1,18 +1,21 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
 
-export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World!');
-	},
-} satisfies ExportedHandler<Env>;
+import { WorkerEntrypoint } from 'cloudflare:workers'
+import { ProxyToSelf } from 'workers-mcp'
+
+export default class MyWorker extends WorkerEntrypoint<Env> {
+  /**
+   * A warm, friendly greeting from your new Workers MCP server.
+   * @param name {string} the name of the person we are greeting.
+   * @return {string} the contents of our greeting.
+   */
+  sayHello(name: string) {
+    return `Hello from an MCP Worker, ${name}!`
+  }
+
+  /**
+   * @ignore
+   **/
+  async fetch(request: Request): Promise<Response> {
+    return new ProxyToSelf(this).fetch(request)
+  }
+}
