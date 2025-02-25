@@ -3,12 +3,12 @@ import { ProxyToSelf } from 'workers-mcp';
 import iconCatalog from './remix-icon-catalog.json';
 
 interface IconRecommendation {
-	baseName: string;
+	name: string;
 	score: number;
 }
 
 interface IconInfo {
-	baseName: string;
+	name: string;
 	category: string;
 	style: string;
 	usage: string;
@@ -19,22 +19,35 @@ interface ResponseContent {
 	text: string;
 }
 
-interface SimilarityScore {
-	algorithm: string;
-	score: number;
-	weight: number;
+interface SimilarityWeights {
+	jaccard: number;
+	ngram: number;
+	category: number;
+	exact: number;
+	levenshtein: number;
+	nameMatch: number;
 }
 
 export default class RemixIconMCP extends WorkerEntrypoint<Env> {
-	// Cache for common word stems and synonyms
-	private static readonly commonWords = new Set(['icon', 'button', 'symbol', 'image', 'logo']);
-	private static readonly synonymMap = new Map<string, string[]>([
-		['play', ['start', 'begin', 'run']],
-		['stop', ['end', 'halt', 'pause']],
-		['delete', ['remove', 'trash', 'erase']],
-		['add', ['plus', 'create', 'new']],
-		['edit', ['modify', 'change', 'update']],
-	]);
+	// Maximum number of items to keep in cache
+	private readonly MAX_CACHE_SIZE = 2000;
+
+	// Minimum score threshold for results
+	private readonly MIN_SCORE_THRESHOLD = 0.08;
+
+	// Similarity weights for different algorithms
+	private readonly weights: SimilarityWeights = {
+		jaccard: 0.3,
+		ngram: 0.15,
+		category: 0.2,
+		exact: 0.2,
+		levenshtein: 0.05,
+		nameMatch: 0.1,
+	};
+
+	// Cache for similarity calculations with LRU-like behavior
+	private similarityCache: Map<string, number> = new Map();
+	private cacheAccessOrder: string[] = [];
 
 	/**
 	 * Find icons based on user description
@@ -42,31 +55,180 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	 * @return {Array<ResponseContent>} Top 3 recommended icons formatted as text content
 	 */
 	findIcons(description: string): ResponseContent[] {
-		// Convert description to lowercase for case-insensitive matching
-		const lowerDescription = description.toLowerCase();
+		// Input validation
+		if (!description || typeof description !== 'string') {
+			throw new Error('Invalid description provided');
+		}
+
+		// Convert description to lowercase and normalize
+		const lowerDescription = this.normalizeInput(description);
 
 		// Calculate similarity scores for each icon
 		const scoredIcons = iconCatalog.icons.map((icon) => {
-			const usage = icon.usage.toLowerCase();
-			const category = icon.category.toLowerCase();
+			const usage = this.normalizeInput(icon.usage);
+			const category = this.normalizeInput(icon.category);
+			const name = this.normalizeInput(icon.name);
 
-			// Calculate similarity score based on description matching usage and category
-			let score = this.calculateSimilarityScore(lowerDescription, usage, category);
+			// Generate cache key
+			const cacheKey = `${lowerDescription}_${usage}_${category}_${name}`;
+
+			// Check cache first
+			let score = this.getCachedScore(cacheKey);
+			if (score === undefined) {
+				// Calculate similarity score if not in cache
+				score = this.calculateSimilarityScore(lowerDescription, usage, category, name);
+				this.setCachedScore(cacheKey, score);
+			}
 
 			return {
-				baseName: icon.baseName,
+				name: icon.name,
 				score: score,
 			};
 		});
 
-		// Sort by score (descending) and take top 3
-		const topIcons = scoredIcons.sort((a, b) => b.score - a.score).slice(0, 3);
+		// Filter by minimum score and sort by score (descending)
+		const topIcons = scoredIcons
+			.filter((icon) => icon.score >= this.MIN_SCORE_THRESHOLD)
+			.sort((a, b) => b.score - a.score)
+			.slice(0, 3);
 
 		// Convert to the expected response format
 		return topIcons.map((icon) => ({
 			type: 'text' as const,
-			text: `${icon.baseName} (Score: ${icon.score.toFixed(2)})`,
+			text: `${icon.name} (Score: ${icon.score.toFixed(2)})`,
 		}));
+	}
+
+	/**
+	 * Get cached similarity score with LRU update
+	 * @private
+	 */
+	private getCachedScore(key: string): number | undefined {
+		const score = this.similarityCache.get(key);
+		if (score !== undefined) {
+			// Update access order
+			this.cacheAccessOrder = this.cacheAccessOrder.filter((k) => k !== key);
+			this.cacheAccessOrder.push(key);
+		}
+		return score;
+	}
+
+	/**
+	 * Set cached similarity score with size limit enforcement
+	 * @private
+	 */
+	private setCachedScore(key: string, score: number): void {
+		// Remove oldest entries if cache is full
+		while (this.similarityCache.size >= this.MAX_CACHE_SIZE) {
+			const oldestKey = this.cacheAccessOrder.shift();
+			if (oldestKey) {
+				this.similarityCache.delete(oldestKey);
+			}
+		}
+
+		// Add new entry
+		this.similarityCache.set(key, score);
+		this.cacheAccessOrder.push(key);
+	}
+
+	/**
+	 * Calculate similarity score between user description and icon metadata using multiple algorithms
+	 * @private
+	 */
+	private calculateSimilarityScore(description: string, usage: string, category: string, name: string): number {
+		// Quick exact match check for high-confidence matches
+		if (description === usage || description === name) {
+			return 1.0;
+		}
+
+		const scores: { [key: string]: number } = {
+			jaccard: this.calculateJaccardSimilarity(description, usage),
+			ngram: this.calculateNGramSimilarity(description, usage, 2),
+			category: this.calculateCategoryScore(description, category),
+			exact: this.calculateExactMatchScore(description, usage),
+			levenshtein: this.calculateLevenshteinSimilarity(description, usage),
+			nameMatch: this.calculateNameMatchScore(description, name),
+		};
+
+		// Apply boosting for high-confidence matches
+		if (scores.exact > 0.8 || scores.nameMatch > 0.8) {
+			return Math.min(1, scores.exact * 1.2);
+		}
+
+		// Calculate weighted sum
+		let weightedSum = 0;
+		let totalWeight = 0;
+
+		for (const [key, weight] of Object.entries(this.weights)) {
+			weightedSum += scores[key] * weight;
+			totalWeight += weight;
+		}
+
+		// Normalize final score
+		return Math.min(1, weightedSum / totalWeight);
+	}
+
+	/**
+	 * Calculate category match score with partial matching
+	 * @private
+	 */
+	private calculateCategoryScore(description: string, category: string): number {
+		// Quick exact match check
+		if (description === category) {
+			return 1;
+		}
+
+		// Check for category as a whole phrase first
+		if (description.includes(category)) {
+			return 0.9; // High but not perfect score for substring match
+		}
+
+		// Check individual words
+		const categoryWords = category.split(/\s+/);
+		const descriptionWords = new Set(description.split(/\s+/));
+
+		const matchingWords = categoryWords.filter((word) => descriptionWords.has(word));
+		const partialScore = matchingWords.length / categoryWords.length;
+
+		// Boost score if matching words are in sequence
+		if (partialScore > 0 && description.includes(matchingWords.join(' '))) {
+			return Math.min(1, partialScore * 1.2);
+		}
+
+		return partialScore;
+	}
+
+	/**
+	 * Calculate name match score with improved partial matching
+	 * @private
+	 */
+	private calculateNameMatchScore(description: string, name: string): number {
+		// Remove common suffixes and split by separators
+		const cleanName = name.replace(/-(?:fill|line)$/, '');
+		const descWords = description.split(/\s+/);
+		const nameWords = cleanName.split(/[-\s]+/);
+
+		// Check for exact matches first
+		const exactMatches = descWords.filter((word) => nameWords.includes(word));
+		if (exactMatches.length > 0) {
+			const exactScore = exactMatches.length / Math.max(descWords.length, nameWords.length);
+			if (exactScore > 0.5) {
+				return exactScore;
+			}
+		}
+
+		// Check for partial matches
+		let partialMatches = 0;
+		for (const descWord of descWords) {
+			for (const nameWord of nameWords) {
+				if (nameWord.includes(descWord) || descWord.includes(nameWord)) {
+					partialMatches++;
+					break;
+				}
+			}
+		}
+
+		return partialMatches / Math.max(descWords.length, nameWords.length);
 	}
 
 	/**
@@ -101,143 +263,103 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		const filteredIcons = iconCatalog.icons
 			.filter((icon) => icon.category.toLowerCase() === category.toLowerCase())
 			.map((icon) => ({
-				baseName: icon.baseName,
-				category: icon.category,
-				style: icon.style,
-				usage: icon.usage,
+				name: icon.name,
 			}))
 			.slice(0, limit);
 
 		// Convert to the expected response format
 		return filteredIcons.map((icon) => ({
 			type: 'text' as const,
-			text: `${icon.baseName} (${icon.style}) - ${icon.usage}`,
+			text: icon.name,
 		}));
 	}
 
 	/**
-	 * Calculate similarity score between user description and icon metadata using multiple algorithms
+	 * Calculate exact match score between two strings
 	 * @private
 	 */
-	private calculateSimilarityScore(description: string, usage: string, category: string): number {
-		// Preprocess input strings
-		const processedDesc = this.preprocessText(description);
-		const processedUsage = this.preprocessText(usage);
-		const processedCategory = this.preprocessText(category);
-
-		// Calculate scores using different algorithms
-		const scores: SimilarityScore[] = [
-			{
-				algorithm: 'jaccard',
-				score: this.calculateJaccardSimilarity(processedDesc, processedUsage),
-				weight: 0.25,
-			},
-			{
-				algorithm: 'ngram',
-				score: this.calculateNGramSimilarity(processedDesc, processedUsage, 2),
-				weight: 0.2,
-			},
-			{
-				algorithm: 'levenshtein',
-				score: this.calculateLevenshteinSimilarity(processedDesc, processedUsage),
-				weight: 0.15,
-			},
-			{
-				algorithm: 'category',
-				score: this.calculateCategoryScore(processedDesc, processedCategory),
-				weight: 0.2,
-			},
-			{
-				algorithm: 'semantic',
-				score: this.calculateSemanticScore(processedDesc, processedUsage),
-				weight: 0.2,
-			},
-		];
-
-		// Dynamic weight adjustment based on input characteristics
-		this.adjustWeights(scores, processedDesc, processedUsage);
-
-		// Calculate weighted average
-		const totalWeight = scores.reduce((sum, s) => sum + s.weight, 0);
-		const weightedSum = scores.reduce((sum, s) => sum + s.score * s.weight, 0);
-
-		return Math.min(1, weightedSum / totalWeight);
+	private calculateExactMatchScore(str1: string, str2: string): number {
+		const words1 = new Set(str1.split(/\s+/));
+		const words2 = new Set(str2.split(/\s+/));
+		const exactMatches = [...words1].filter((word) => words2.has(word)).length;
+		return exactMatches / Math.max(words1.size, words2.size);
 	}
 
 	/**
-	 * Preprocess text for better comparison
+	 * Calculate Levenshtein distance based similarity
 	 * @private
 	 */
-	private preprocessText(text: string): string {
-		return text
+	private calculateLevenshteinSimilarity(str1: string, str2: string): number {
+		const matrix: number[][] = [];
+
+		// Initialize matrix
+		for (let i = 0; i <= str1.length; i++) {
+			matrix[i] = [i];
+		}
+		for (let j = 0; j <= str2.length; j++) {
+			matrix[0][j] = j;
+		}
+
+		// Fill matrix
+		for (let i = 1; i <= str1.length; i++) {
+			for (let j = 1; j <= str2.length; j++) {
+				if (str1[i - 1] === str2[j - 1]) {
+					matrix[i][j] = matrix[i - 1][j - 1];
+				} else {
+					matrix[i][j] = Math.min(
+						matrix[i - 1][j - 1] + 1, // substitution
+						matrix[i][j - 1] + 1, // insertion
+						matrix[i - 1][j] + 1 // deletion
+					);
+				}
+			}
+		}
+
+		// Convert distance to similarity score (0-1)
+		const maxLength = Math.max(str1.length, str2.length);
+		return 1 - matrix[str1.length][str2.length] / maxLength;
+	}
+
+	/**
+	 * Normalize input string
+	 * @private
+	 */
+	private normalizeInput(input: string): string {
+		return input
 			.toLowerCase()
+			.trim()
 			.replace(/[^\w\s-]/g, '') // Remove special characters except hyphen
-			.replace(/\s+/g, ' ') // Normalize whitespace
-			.trim();
+			.replace(/\s+/g, ' '); // Normalize whitespace
 	}
 
 	/**
-	 * Calculate Jaccard similarity between two strings with word stemming
+	 * Calculate Jaccard similarity between two strings
 	 * @private
 	 */
 	private calculateJaccardSimilarity(str1: string, str2: string): number {
-		const words1 = new Set(this.getWordVariants(str1));
-		const words2 = new Set(this.getWordVariants(str2));
+		const set1 = new Set(str1.toLowerCase().split(/\s+/));
+		const set2 = new Set(str2.toLowerCase().split(/\s+/));
 
-		const intersection = new Set([...words1].filter((x) => words2.has(x)));
-		const union = new Set([...words1, ...words2]);
+		const intersection = new Set([...set1].filter((x) => set2.has(x)));
+		const union = new Set([...set1, ...set2]);
 
 		return intersection.size / union.size;
 	}
 
 	/**
-	 * Get word variants including stems and synonyms
-	 * @private
-	 */
-	private getWordVariants(text: string): string[] {
-		const words = text.split(/\s+/);
-		const variants = new Set<string>();
-
-		for (const word of words) {
-			// Add original word
-			variants.add(word);
-
-			// Add word stem (simple implementation)
-			const stem = this.simpleStem(word);
-			variants.add(stem);
-
-			// Add synonyms
-			const synonyms = RemixIconMCP.synonymMap.get(word) || [];
-			synonyms.forEach((syn) => variants.add(syn));
-		}
-
-		return Array.from(variants);
-	}
-
-	/**
-	 * Simple word stemming (can be replaced with a proper stemming library)
-	 * @private
-	 */
-	private simpleStem(word: string): string {
-		return word
-			.replace(/(?:ing|ed|er|ment)$/, '') // Remove common suffixes
-			.replace(/(?:s|es)$/, ''); // Remove plurals
-	}
-
-	/**
-	 * Calculate N-gram similarity with optimized implementation
+	 * Calculate N-gram similarity between two strings
 	 * @private
 	 */
 	private calculateNGramSimilarity(str1: string, str2: string, n: number): number {
-		if (str1.length < n || str2.length < n) {
-			return str1 === str2 ? 1 : 0;
-		}
+		// Convert strings to lowercase for case-insensitive comparison
+		str1 = str1.toLowerCase();
+		str2 = str2.toLowerCase();
 
+		// Generate n-grams for both strings
 		const getNGrams = (str: string, n: number) => {
-			const ngrams = new Map<string, number>();
+			const ngrams = new Set<string>();
 			for (let i = 0; i <= str.length - n; i++) {
-				const gram = str.slice(i, i + n);
-				ngrams.set(gram, (ngrams.get(gram) || 0) + 1);
+				ngrams.add(str.slice(i, i + n));
 			}
 			return ngrams;
 		};
@@ -245,133 +367,9 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		const ngrams1 = getNGrams(str1, n);
 		const ngrams2 = getNGrams(str2, n);
 
-		let intersection = 0;
-		for (const [gram, count1] of ngrams1) {
-			const count2 = ngrams2.get(gram) || 0;
-			intersection += Math.min(count1, count2);
-		}
-
-		const total1 = Array.from(ngrams1.values()).reduce((sum, count) => sum + count, 0);
-		const total2 = Array.from(ngrams2.values()).reduce((sum, count) => sum + count, 0);
-
-		return (2.0 * intersection) / (total1 + total2);
-	}
-
-	/**
-	 * Calculate Levenshtein similarity
-	 * @private
-	 */
-	private calculateLevenshteinSimilarity(str1: string, str2: string): number {
-		if (str1 === str2) return 1;
-		if (str1.length === 0) return 0;
-		if (str2.length === 0) return 0;
-
-		const matrix = Array(str2.length + 1)
-			.fill(null)
-			.map(() => Array(str1.length + 1).fill(0));
-
-		for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-		for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-
-		for (let j = 1; j <= str2.length; j++) {
-			for (let i = 1; i <= str1.length; i++) {
-				const substitutionCost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-				matrix[j][i] = Math.min(
-					matrix[j][i - 1] + 1, // deletion
-					matrix[j - 1][i] + 1, // insertion
-					matrix[j - 1][i - 1] + substitutionCost // substitution
-				);
-			}
-		}
-
-		const distance = matrix[str2.length][str1.length];
-		const maxLength = Math.max(str1.length, str2.length);
-		return 1 - distance / maxLength;
-	}
-
-	/**
-	 * Calculate category match score with context awareness
-	 * @private
-	 */
-	private calculateCategoryScore(description: string, category: string): number {
-		if (description.includes(category)) return 1;
-
-		const descWords = new Set(description.split(/\s+/));
-		const categoryWords = new Set(category.split(/\s+/));
-
-		let matchCount = 0;
-		for (const word of descWords) {
-			if (categoryWords.has(word) || [...categoryWords].some((catWord) => this.calculateLevenshteinSimilarity(word, catWord) > 0.8)) {
-				matchCount++;
-			}
-		}
-
-		return matchCount / Math.max(descWords.size, categoryWords.size);
-	}
-
-	/**
-	 * Calculate semantic similarity using synonyms and context
-	 * @private
-	 */
-	private calculateSemanticScore(description: string, usage: string): number {
-		const descWords = description.split(/\s+/);
-		const usageWords = usage.split(/\s+/);
-
-		let matchScore = 0;
-		for (const descWord of descWords) {
-			if (RemixIconMCP.commonWords.has(descWord)) continue;
-
-			let wordScore = 0;
-			for (const usageWord of usageWords) {
-				// Check direct match
-				if (descWord === usageWord) {
-					wordScore = Math.max(wordScore, 1);
-					continue;
-				}
-
-				// Check synonyms
-				const synonyms = RemixIconMCP.synonymMap.get(descWord) || [];
-				if (synonyms.includes(usageWord)) {
-					wordScore = Math.max(wordScore, 0.9);
-					continue;
-				}
-
-				// Check partial match
-				const similarity = this.calculateLevenshteinSimilarity(descWord, usageWord);
-				wordScore = Math.max(wordScore, similarity);
-			}
-			matchScore += wordScore;
-		}
-
-		return matchScore / descWords.length;
-	}
-
-	/**
-	 * Dynamically adjust weights based on input characteristics
-	 * @private
-	 */
-	private adjustWeights(scores: SimilarityScore[], description: string, usage: string): void {
-		const descLength = description.length;
-		const usageLength = usage.length;
-
-		// Adjust weights based on input length differences
-		if (Math.abs(descLength - usageLength) > 10) {
-			// Favor n-gram and semantic matching for very different lengths
-			const ngramScore = scores.find((s) => s.algorithm === 'ngram');
-			const semanticScore = scores.find((s) => s.algorithm === 'semantic');
-			if (ngramScore) ngramScore.weight *= 1.2;
-			if (semanticScore) semanticScore.weight *= 1.2;
-		}
-
-		// Boost exact matches for short inputs
-		if (descLength < 10 && usageLength < 10) {
-			const jaccardScore = scores.find((s) => s.algorithm === 'jaccard');
-			if (jaccardScore) jaccardScore.weight *= 1.3;
-		}
-
-		// Normalize weights
-		const totalWeight = scores.reduce((sum, s) => sum + s.weight, 0);
-		scores.forEach((s) => (s.weight = s.weight / totalWeight));
+		// Calculate Dice coefficient
+		const intersection = new Set([...ngrams1].filter((x) => ngrams2.has(x)));
+		return (2.0 * intersection.size) / (ngrams1.size + ngrams2.size);
 	}
 
 	/**
