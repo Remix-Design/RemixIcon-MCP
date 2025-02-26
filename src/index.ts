@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ProxyToSelf } from 'workers-mcp';
-import iconCatalog from './remix-icon-catalog.json';
+import iconCatalog from './icon-catalog.json';
 
 interface IconRecommendation {
 	name: string;
@@ -12,6 +12,7 @@ interface IconInfo {
 	category: string;
 	style: string;
 	usage: string;
+	tags: string[];
 }
 
 interface ResponseContent {
@@ -26,6 +27,7 @@ interface SimilarityWeights {
 	exact: number;
 	levenshtein: number;
 	nameMatch: number;
+	tags: number;
 }
 
 export default class RemixIconMCP extends WorkerEntrypoint<Env> {
@@ -37,12 +39,13 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	// Similarity weights for different algorithms
 	private readonly weights: SimilarityWeights = {
-		jaccard: 0.3,
+		jaccard: 0.25,
 		ngram: 0.15,
-		category: 0.2,
-		exact: 0.2,
+		category: 0.15,
+		exact: 0.15,
 		levenshtein: 0.05,
 		nameMatch: 0.1,
+		tags: 0.15,
 	};
 
 	// Cache for similarity calculations with LRU-like behavior
@@ -76,7 +79,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			let score = this.getCachedScore(cacheKey);
 			if (score === undefined) {
 				// Calculate similarity score if not in cache
-				score = this.calculateSimilarityScore(lowerDescription, usage, category, name);
+				score = this.calculateSimilarityScore(lowerDescription, usage, category, name, icon.tags);
 				this.setCachedScore(cacheKey, score);
 			}
 
@@ -135,7 +138,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	 * Calculate similarity score between user description and icon metadata using multiple algorithms
 	 * @private
 	 */
-	private calculateSimilarityScore(description: string, usage: string, category: string, name: string): number {
+	private calculateSimilarityScore(description: string, usage: string, category: string, name: string, tags: string[]): number {
 		// Quick exact match check for high-confidence matches
 		if (description === usage || description === name) {
 			return 1.0;
@@ -148,6 +151,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			exact: this.calculateExactMatchScore(description, usage),
 			levenshtein: this.calculateLevenshteinSimilarity(description, usage),
 			nameMatch: this.calculateNameMatchScore(description, name),
+			tags: this.calculateTagsScore(description, tags || []),
 		};
 
 		// Apply boosting for high-confidence matches
@@ -169,44 +173,136 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	}
 
 	/**
-	 * Calculate category match score with partial matching
+	 * Split text into words with improved Chinese handling
 	 * @private
 	 */
-	private calculateCategoryScore(description: string, category: string): number {
-		// Quick exact match check
-		if (description === category) {
-			return 1;
+	private splitWords(text: string): string[] {
+		// Split English words by spaces and hyphens
+		const englishWords = text.split(/[-\s]+/);
+
+		// For Chinese, use character-based and word-based splitting
+		const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+
+		// Extract potential Chinese words (2-3 characters)
+		const chineseWords: string[] = [];
+		for (let i = 0; i < text.length - 1; i++) {
+			if (/[\u4e00-\u9fa5]/.test(text[i])) {
+				// Add 2-character words
+				if (/[\u4e00-\u9fa5]/.test(text[i + 1])) {
+					chineseWords.push(text.slice(i, i + 2));
+				}
+				// Add 3-character words
+				if (i < text.length - 2 && /[\u4e00-\u9fa5]/.test(text[i + 2])) {
+					chineseWords.push(text.slice(i, i + 3));
+				}
+			}
 		}
 
-		// Check for category as a whole phrase first
-		if (description.includes(category)) {
-			return 0.9; // High but not perfect score for substring match
-		}
-
-		// Check individual words
-		const categoryWords = category.split(/\s+/);
-		const descriptionWords = new Set(description.split(/\s+/));
-
-		const matchingWords = categoryWords.filter((word) => descriptionWords.has(word));
-		const partialScore = matchingWords.length / categoryWords.length;
-
-		// Boost score if matching words are in sequence
-		if (partialScore > 0 && description.includes(matchingWords.join(' '))) {
-			return Math.min(1, partialScore * 1.2);
-		}
-
-		return partialScore;
+		return [...new Set([...englishWords, ...chineseChars, ...chineseWords])].filter((word) => word.length > 0);
 	}
 
 	/**
-	 * Calculate name match score with improved partial matching
+	 * Normalize input string while preserving Chinese characters
+	 * @private
+	 */
+	private normalizeInput(input: string): string {
+		return input
+			.toLowerCase()
+			.trim()
+			.replace(/[^\w\s\u4e00-\u9fa5-]/g, ''); // Keep alphanumeric, spaces, hyphens and Chinese characters
+	}
+
+	/**
+	 * Calculate Jaccard similarity between two strings with Chinese support
+	 * @private
+	 */
+	private calculateJaccardSimilarity(str1: string, str2: string): number {
+		const words1 = new Set(this.splitWords(str1.toLowerCase()));
+		const words2 = new Set(this.splitWords(str2.toLowerCase()));
+
+		const intersection = new Set([...words1].filter((x) => words2.has(x)));
+		const union = new Set([...words1, ...words2]);
+
+		return intersection.size / union.size;
+	}
+
+	/**
+	 * Calculate N-gram similarity between two strings with improved Chinese support
+	 * @private
+	 */
+	private calculateNGramSimilarity(str1: string, str2: string, n: number): number {
+		// For Chinese text, use character-level comparison
+		const str1Chinese = str1.match(/[\u4e00-\u9fa5]+/g) || [];
+		const str2Chinese = str2.match(/[\u4e00-\u9fa5]+/g) || [];
+
+		// Calculate Chinese similarity
+		const chineseSimilarity = this.calculateChineseNGramSimilarity(str1Chinese.join(''), str2Chinese.join(''), 1);
+
+		// Calculate non-Chinese similarity
+		const nonChineseSimilarity = this.calculateNonChineseNGramSimilarity(
+			str1.replace(/[\u4e00-\u9fa5]+/g, ' '),
+			str2.replace(/[\u4e00-\u9fa5]+/g, ' '),
+			n
+		);
+
+		// Weight the scores based on the proportion of Chinese characters
+		const chineseRatio = (str1Chinese.join('').length + str2Chinese.join('').length) / (str1.length + str2.length);
+
+		return chineseSimilarity * chineseRatio + nonChineseSimilarity * (1 - chineseRatio);
+	}
+
+	/**
+	 * Calculate N-gram similarity for Chinese text
+	 * @private
+	 */
+	private calculateChineseNGramSimilarity(str1: string, str2: string, n: number): number {
+		if (!str1 || !str2) return 0;
+
+		const getNGrams = (str: string, n: number) => {
+			const ngrams = new Set<string>();
+			for (let i = 0; i <= str.length - n; i++) {
+				ngrams.add(str.slice(i, i + n));
+			}
+			return ngrams;
+		};
+
+		const ngrams1 = getNGrams(str1, n);
+		const ngrams2 = getNGrams(str2, n);
+
+		const intersection = new Set([...ngrams1].filter((x) => ngrams2.has(x)));
+		return (2.0 * intersection.size) / (ngrams1.size + ngrams2.size);
+	}
+
+	/**
+	 * Calculate N-gram similarity for non-Chinese text
+	 * @private
+	 */
+	private calculateNonChineseNGramSimilarity(str1: string, str2: string, n: number): number {
+		const getNGrams = (str: string, n: number) => {
+			const ngrams = new Set<string>();
+			str = str.toLowerCase().trim();
+			for (let i = 0; i <= str.length - n; i++) {
+				ngrams.add(str.slice(i, i + n));
+			}
+			return ngrams;
+		};
+
+		const ngrams1 = getNGrams(str1, n);
+		const ngrams2 = getNGrams(str2, n);
+
+		const intersection = new Set([...ngrams1].filter((x) => ngrams2.has(x)));
+		return (2.0 * intersection.size) / (ngrams1.size + ngrams2.size);
+	}
+
+	/**
+	 * Calculate name match score with improved partial matching and Chinese support
 	 * @private
 	 */
 	private calculateNameMatchScore(description: string, name: string): number {
 		// Remove common suffixes and split by separators
 		const cleanName = name.replace(/-(?:fill|line)$/, '');
-		const descWords = description.split(/\s+/);
-		const nameWords = cleanName.split(/[-\s]+/);
+		const descWords = this.splitWords(description);
+		const nameWords = this.splitWords(cleanName);
 
 		// Check for exact matches first
 		const exactMatches = descWords.filter((word) => nameWords.includes(word));
@@ -229,6 +325,89 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		}
 
 		return partialMatches / Math.max(descWords.length, nameWords.length);
+	}
+
+	/**
+	 * Calculate category match score with partial matching and Chinese support
+	 * @private
+	 */
+	private calculateCategoryScore(description: string, category: string): number {
+		// Quick exact match check
+		if (description === category) {
+			return 1;
+		}
+
+		// Check for category as a whole phrase first
+		if (description.includes(category)) {
+			return 0.9; // High but not perfect score for substring match
+		}
+
+		// Check individual words including Chinese characters
+		const categoryWords = this.splitWords(category);
+		const descriptionWords = new Set(this.splitWords(description));
+
+		const matchingWords = categoryWords.filter((word) => descriptionWords.has(word));
+		const partialScore = matchingWords.length / categoryWords.length;
+
+		// Boost score if matching words are in sequence
+		if (partialScore > 0 && description.includes(matchingWords.join(''))) {
+			return Math.min(1, partialScore * 1.2);
+		}
+
+		return partialScore;
+	}
+
+	/**
+	 * Calculate similarity score between description and icon tags with improved Chinese support
+	 * @private
+	 */
+	private calculateTagsScore(description: string, tags: string[]): number {
+		if (!tags || tags.length === 0) {
+			return 0;
+		}
+
+		const descWords = new Set(this.splitWords(description.toLowerCase()));
+		const descChars = new Set([...description.toLowerCase()].filter((char) => /[\u4e00-\u9fa5]/.test(char)));
+
+		let totalScore = 0;
+		let maxTagScore = 0;
+
+		for (const tag of tags) {
+			const tagLower = tag.toLowerCase();
+			const tagWords = this.splitWords(tagLower);
+			const tagChars = new Set([...tagLower].filter((char) => /[\u4e00-\u9fa5]/.test(char)));
+
+			// Calculate word-level match score
+			const wordMatchCount = tagWords.filter((word) => descWords.has(word)).length;
+			const wordScore = wordMatchCount / Math.max(tagWords.length, 1);
+
+			// Calculate character-level match score for Chinese
+			let charScore = 0;
+			if (tagChars.size > 0 && descChars.size > 0) {
+				const commonChars = [...tagChars].filter((char) => descChars.has(char)).length;
+				charScore = commonChars / Math.max(tagChars.size, descChars.size);
+			}
+
+			// Calculate position-based score for exact matches
+			let positionScore = 0;
+			if (description.includes(tag)) {
+				const position = description.indexOf(tag);
+				positionScore = 1 - (position / description.length) * 0.5; // Earlier matches get higher scores
+			}
+
+			// Combine scores with weights
+			const tagScore = Math.max(
+				wordScore * 0.4 + charScore * 0.4 + positionScore * 0.2,
+				description.toLowerCase().includes(tagLower) ? 0.9 : 0 // Boost for exact matches
+			);
+
+			totalScore += tagScore;
+			maxTagScore = Math.max(maxTagScore, tagScore);
+		}
+
+		// Combine average score and best match score
+		const avgScore = totalScore / tags.length;
+		return Math.min(1, avgScore * 0.7 + maxTagScore * 0.3);
 	}
 
 	/**
@@ -318,58 +497,6 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		// Convert distance to similarity score (0-1)
 		const maxLength = Math.max(str1.length, str2.length);
 		return 1 - matrix[str1.length][str2.length] / maxLength;
-	}
-
-	/**
-	 * Normalize input string
-	 * @private
-	 */
-	private normalizeInput(input: string): string {
-		return input
-			.toLowerCase()
-			.trim()
-			.replace(/[^\w\s-]/g, '') // Remove special characters except hyphen
-			.replace(/\s+/g, ' '); // Normalize whitespace
-	}
-
-	/**
-	 * Calculate Jaccard similarity between two strings
-	 * @private
-	 */
-	private calculateJaccardSimilarity(str1: string, str2: string): number {
-		const set1 = new Set(str1.toLowerCase().split(/\s+/));
-		const set2 = new Set(str2.toLowerCase().split(/\s+/));
-
-		const intersection = new Set([...set1].filter((x) => set2.has(x)));
-		const union = new Set([...set1, ...set2]);
-
-		return intersection.size / union.size;
-	}
-
-	/**
-	 * Calculate N-gram similarity between two strings
-	 * @private
-	 */
-	private calculateNGramSimilarity(str1: string, str2: string, n: number): number {
-		// Convert strings to lowercase for case-insensitive comparison
-		str1 = str1.toLowerCase();
-		str2 = str2.toLowerCase();
-
-		// Generate n-grams for both strings
-		const getNGrams = (str: string, n: number) => {
-			const ngrams = new Set<string>();
-			for (let i = 0; i <= str.length - n; i++) {
-				ngrams.add(str.slice(i, i + n));
-			}
-			return ngrams;
-		};
-
-		const ngrams1 = getNGrams(str1, n);
-		const ngrams2 = getNGrams(str2, n);
-
-		// Calculate Dice coefficient
-		const intersection = new Set([...ngrams1].filter((x) => ngrams2.has(x)));
-		return (2.0 * intersection.size) / (ngrams1.size + ngrams2.size);
 	}
 
 	/**
