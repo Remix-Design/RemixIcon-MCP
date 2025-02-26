@@ -1,4 +1,8 @@
-# Remix Icon MCP
+# Remix Icon MCP ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
+
+[![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
+
+[English](README.md) | 简体中文
 
 基于 Cloudflare Workers 构建的强大图标搜索和推荐服务，通过先进的语义匹配算法提供智能图标发现功能。
 
