@@ -1,22 +1,40 @@
 {
-  "name": "mcp-server-remix-icon",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "deploy": "workers-mcp docgen src/index.ts && wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
-    "test": "vitest",
-    "cf-typegen": "wrangler types"
-  },
-  "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.6.4",
-    "@cloudflare/workers-types": "^4.20250224.0",
-    "typescript": "^5.5.2",
-    "vitest": "~2.1.9",
-    "wrangler": "^3.110.0"
-  },
-  "dependencies": {
-    "workers-mcp": "^0.0.13"
-  }
+	"name": "mcp-server-remix-icon",
+	"version": "0.0.1",
+	"description": "A powerful icon search and recommendation service built on Cloudflare Workers, providing intelligent icon discovery through advanced semantic matching algorithms.",
+	"main": "src/index.ts",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/FradSer/mcp-server-remix-icon.git"
+	},
+	"keywords": [
+		"remixicon",
+		"mcp",
+		"mcp-server",
+		"cloudflare",
+		"workers"
+	],
+	"author": "Frad LEE <fradser@gmail.com>",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/FradSer/mcp-server-remix-icon/issues"
+	},
+	"homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
+	"scripts": {
+		"deploy": "workers-mcp docgen src/index.ts && wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"test": "vitest",
+		"cf-typegen": "wrangler types"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.6.4",
+		"@cloudflare/workers-types": "^4.20250224.0",
+		"typescript": "^5.5.2",
+		"vitest": "~2.1.9",
+		"wrangler": "^3.110.0"
+	},
+	"dependencies": {
+		"workers-mcp": "^0.0.13"
+	}
 }
