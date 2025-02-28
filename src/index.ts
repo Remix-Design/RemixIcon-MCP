@@ -19,6 +19,8 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	/**
 	 * Find icons based on user description with enhanced matching
+	 * @param {string} description - The user's description to search for icons
+	 * @returns {ResponseContent[]} Array of matching icons with their scores and categories
 	 */
 	findIcons(description: string): ResponseContent[] {
 		if (!description || typeof description !== 'string') {
@@ -39,8 +41,8 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 					name: icon.name,
 					score,
 					category: icon.category,
-					style: icon.style,
-					usage: icon.usage,
+					termFrequency: 0,
+					relevanceBoost: 1.0,
 				});
 
 				// Track category matches
@@ -106,8 +108,12 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	/**
 	 * Compare icons for sorting
+	 * @param {ScoredIcon} a - First icon to compare
+	 * @param {ScoredIcon} b - Second icon to compare
+	 * @param {Map<string, number>} categoryRelevance - Map of category relevance scores
+	 * @returns {number} Comparison result (-1, 0, or 1)
 	 */
-	private compareIcons(a: any, b: any, categoryRelevance: Map<string, number>): number {
+	private compareIcons(a: ScoredIcon, b: ScoredIcon, categoryRelevance: Map<string, number>): number {
 		// Primary sort by score
 		const scoreDiff = b.score - a.score;
 		if (Math.abs(scoreDiff) > 0.1) {
@@ -120,15 +126,17 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			return categoryDiff;
 		}
 
-		// Final sort by name length and style preference
-		const styleScore = (icon: any) => (icon.style === 'fill' ? 0.1 : 0);
-		return styleScore(b) - styleScore(a) || a.name.length - b.name.length;
+		// Final sort by name length
+		return a.name.length - b.name.length;
 	}
 
 	/**
 	 * Find similar icons based on name and category
+	 * @param {ScoredIcon} icon - The reference icon to find similar ones for
+	 * @param {ScoredIcon[]} icons - Array of icons to search through
+	 * @returns {ScoredIcon[]} Array of similar icons
 	 */
-	private findSimilarIcons(icon: any, icons: any[]): any[] {
+	private findSimilarIcons(icon: ScoredIcon, icons: ScoredIcon[]): ScoredIcon[] {
 		return icons
 			.filter(
 				(other) =>
@@ -142,6 +150,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	/**
 	 * Get all available icon categories
+	 * @returns {ResponseContent[]} Array of unique icon categories
 	 */
 	getIconCategories(): ResponseContent[] {
 		const categories = new Set<string>();
@@ -157,6 +166,11 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	/**
 	 * Find icons in a specific category based on description
+	 * @param {string} description - The search description
+	 * @param {string} category - The category to search in
+	 * @param {number} [limit=3] - Maximum number of results to return
+	 * @returns {ResponseContent[]} Array of matching icons in the specified category
+	 * @throws {Error} If description or category is not provided
 	 */
 	findIconsByCategory(description: string, category: string, limit: number = 3): ResponseContent[] {
 		if (!description || !category) {
@@ -189,6 +203,9 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	/**
 	 * Calculate term frequency
+	 * @param {string[]} searchTerms - Array of search terms
+	 * @param {string[]} targetTerms - Array of terms to search in
+	 * @returns {number} The frequency of search terms in target terms
 	 */
 	private calculateTermFrequency(searchTerms: string[], targetTerms: string[]): number {
 		const searchSet = new Set(searchTerms);
@@ -197,6 +214,8 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	/**
 	 * Format scored icons into response format
+	 * @param {ScoredIcon[]} icons - Array of scored icons to format
+	 * @returns {ResponseContent[]} Formatted icon results
 	 */
 	private formatResults(icons: ScoredIcon[]): ResponseContent[] {
 		return icons.map((icon) => ({
