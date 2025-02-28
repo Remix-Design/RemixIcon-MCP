@@ -1,0 +1,20 @@
+---
+description: A powerful icon search and recommendation service built on Cloudflare Workers
+globs: 
+alwaysApply: true
+---
+- **Runtime**: Node.js
+- **Platform**: Cloudflare Workers
+- **Language**: TypeScript
+- **Testing**: Vitest (with @cloudflare/vitest-pool-workers)
+- **Package Manager**: npm
+- **Main Dependencies**:
+  - workers-mcp: ^0.0.13
+- **Dev Dependencies**:
+  - wrangler: ^3.110.0
+  - typescript: ^5.5.2
+  - vitest: ~2.1.9
+- **Scripts**:
+  - deploy: workers-mcp docgen and wrangler deploy
+  - dev/start: wrangler dev
+  - test: vitest
