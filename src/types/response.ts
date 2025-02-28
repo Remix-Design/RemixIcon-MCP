@@ -1,5 +1,5 @@
 /**
- * Standard response format for icon search results
+ * Response content type
  */
 export interface ResponseContent {
 	type: 'text';

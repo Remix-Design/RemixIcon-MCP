@@ -3,7 +3,7 @@ import { ProxyToSelf } from 'workers-mcp';
 import { SEARCH_ENGINE_CONFIG } from './config';
 import iconCatalog from './icon-catalog.json';
 import { SearchService } from './services';
-import { ResponseContent, ScoredIcon } from './types';
+import { ResponseContent } from './types';
 import { TextProcessor } from './utils';
 
 /**
@@ -60,7 +60,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		// Enhanced filtering and sorting
 		const primaryResults = scoredIcons
 			.filter((icon) => icon.score >= SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.HIGH_SCORE_THRESHOLD)
-			.sort((a, b) => this.compareIcons(a, b, categoryRelevance));
+			.sort((a, b) => b.score - a.score);
 
 		const secondaryResults = scoredIcons
 			.filter(
@@ -68,7 +68,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 					icon.score >= SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.SECONDARY_RESULTS_THRESHOLD &&
 					icon.score < SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.HIGH_SCORE_THRESHOLD
 			)
-			.sort((a, b) => this.compareIcons(a, b, categoryRelevance));
+			.sort((a, b) => b.score - a.score);
 
 		// Combine results with deduplication
 		const selectedIcons = new Set<string>();
@@ -80,15 +80,6 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			if (!selectedIcons.has(icon.name)) {
 				results.push(icon);
 				selectedIcons.add(icon.name);
-
-				// Add similar icons if available
-				const similarIcons = this.findSimilarIcons(icon, primaryResults);
-				for (const similar of similarIcons) {
-					if (selectedIcons.size < SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.MAX_RESULTS && !selectedIcons.has(similar.name)) {
-						results.push(similar);
-						selectedIcons.add(similar.name);
-					}
-				}
 			}
 		}
 
@@ -103,49 +94,10 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			}
 		}
 
-		return this.formatResults(results);
-	}
-
-	/**
-	 * Compare icons for sorting
-	 * @param {ScoredIcon} a - First icon to compare
-	 * @param {ScoredIcon} b - Second icon to compare
-	 * @param {Map<string, number>} categoryRelevance - Map of category relevance scores
-	 * @returns {number} Comparison result (-1, 0, or 1)
-	 */
-	private compareIcons(a: ScoredIcon, b: ScoredIcon, categoryRelevance: Map<string, number>): number {
-		// Primary sort by score
-		const scoreDiff = b.score - a.score;
-		if (Math.abs(scoreDiff) > 0.1) {
-			return scoreDiff;
-		}
-
-		// Secondary sort by category relevance
-		const categoryDiff = (categoryRelevance.get(b.category) || 0) - (categoryRelevance.get(a.category) || 0);
-		if (Math.abs(categoryDiff) > 0.1) {
-			return categoryDiff;
-		}
-
-		// Final sort by name length
-		return a.name.length - b.name.length;
-	}
-
-	/**
-	 * Find similar icons based on name and category
-	 * @param {ScoredIcon} icon - The reference icon to find similar ones for
-	 * @param {ScoredIcon[]} icons - Array of icons to search through
-	 * @returns {ScoredIcon[]} Array of similar icons
-	 */
-	private findSimilarIcons(icon: ScoredIcon, icons: ScoredIcon[]): ScoredIcon[] {
-		return icons
-			.filter(
-				(other) =>
-					other !== icon &&
-					other.category === icon.category &&
-					(other.name.includes(icon.name) || icon.name.includes(other.name)) &&
-					other.score >= icon.score * SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.SIMILAR_ICON_THRESHOLD
-			)
-			.slice(0, SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.MAX_SIMILAR_ICONS);
+		return results.map((icon) => ({
+			type: 'text' as const,
+			text: `${icon.name} (Score: ${icon.score.toFixed(2)}, Category: ${icon.category})`,
+		}));
 	}
 
 	/**
@@ -198,27 +150,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			.filter((icon) => icon.score >= SEARCH_ENGINE_CONFIG.MIN_SCORE_THRESHOLD)
 			.sort((a, b) => b.score - a.score);
 
-		return this.formatResults(scoredIcons.slice(0, limit));
-	}
-
-	/**
-	 * Calculate term frequency
-	 * @param {string[]} searchTerms - Array of search terms
-	 * @param {string[]} targetTerms - Array of terms to search in
-	 * @returns {number} The frequency of search terms in target terms
-	 */
-	private calculateTermFrequency(searchTerms: string[], targetTerms: string[]): number {
-		const searchSet = new Set(searchTerms);
-		return targetTerms.filter((term) => searchSet.has(term)).length;
-	}
-
-	/**
-	 * Format scored icons into response format
-	 * @param {ScoredIcon[]} icons - Array of scored icons to format
-	 * @returns {ResponseContent[]} Formatted icon results
-	 */
-	private formatResults(icons: ScoredIcon[]): ResponseContent[] {
-		return icons.map((icon) => ({
+		return scoredIcons.slice(0, limit).map((icon) => ({
 			type: 'text' as const,
 			text: `${icon.name} (Score: ${icon.score.toFixed(2)}, Category: ${icon.category})`,
 		}));

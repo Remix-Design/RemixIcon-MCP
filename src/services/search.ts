@@ -1,4 +1,4 @@
-import { CATEGORY_WEIGHTS, SEARCH_ENGINE_CONFIG, SEMANTIC_GROUPS, SIMILARITY_WEIGHTS, SYNONYMS, SYNONYM_GROUPS } from '../config';
+import { CATEGORY_WEIGHTS, SEARCH_ENGINE_CONFIG, SEMANTIC_GROUPS, SIMILARITY_WEIGHTS, SYNONYM_GROUPS, SYNONYM_MAP } from '../config';
 import { SimilarityEngine, TextProcessor } from '../utils';
 
 /**
@@ -109,7 +109,7 @@ export class SearchService {
 			let hasDirectMatch = false;
 
 			// Add direct synonyms with weights
-			for (const [key, synonyms] of Object.entries(SYNONYMS)) {
+			for (const [key, synonyms] of Object.entries(SYNONYM_MAP) as Array<[string, readonly string[]]>) {
 				if (key === word) {
 					hasDirectMatch = true;
 					expandedWords.add(key);
@@ -129,7 +129,7 @@ export class SearchService {
 
 			// Add group synonyms with lower weights if no direct match
 			if (!hasDirectMatch) {
-				for (const [group, terms] of Object.entries(SYNONYM_GROUPS)) {
+				for (const [group, terms] of Object.entries(SYNONYM_GROUPS) as Array<[string, readonly string[]]>) {
 					if (terms.includes(word)) {
 						terms.forEach((term) => {
 							if (term !== word) {
@@ -221,7 +221,7 @@ export class SearchService {
 	 */
 	private areTermsRelated(term1: string, term2: string): boolean {
 		// Check direct synonyms
-		for (const [key, synonyms] of Object.entries(SYNONYMS)) {
+		for (const [key, synonyms] of Object.entries(SYNONYM_MAP) as Array<[string, readonly string[]]>) {
 			if (
 				(key === term1 && synonyms.includes(term2)) ||
 				(key === term2 && synonyms.includes(term1)) ||
@@ -232,7 +232,7 @@ export class SearchService {
 		}
 
 		// Check synonym groups
-		for (const [_, terms] of Object.entries(SYNONYM_GROUPS)) {
+		for (const [_, terms] of Object.entries(SYNONYM_GROUPS) as Array<[string, readonly string[]]>) {
 			if (terms.includes(term1) && terms.includes(term2)) {
 				return true;
 			}
@@ -432,7 +432,7 @@ export class SearchService {
 	}
 
 	/**
-	 * Calculate semantic score with improved synonym handling
+	 * Calculate semantic score with improved abstract concept handling
 	 */
 	private calculateSemanticScore(description: string, usage: string, tags: string[]): number {
 		const descWords = TextProcessor.splitWords(description);
@@ -442,19 +442,49 @@ export class SearchService {
 		let semanticScore = 0;
 		let maxScore = 0;
 		let matchCount = 0;
+		let abstractConceptBoost = 0;
 		let synonymMatchBoost = 0;
 
+		// First check for abstract concepts
+		for (const [concept, group] of Object.entries(SEMANTIC_GROUPS)) {
+			const conceptWords = group.words.map((w) => w.word);
+			const conceptMatches = descWords.filter((word) => conceptWords.includes(word) || this.hasConceptualMatch(word, conceptWords)).length;
+
+			if (conceptMatches > 0) {
+				// Apply abstract concept boost
+				abstractConceptBoost = Math.max(
+					abstractConceptBoost,
+					(conceptMatches / descWords.length) * SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.ABSTRACT_CONCEPT_BOOST * (group.weight || 1.0)
+				);
+
+				// Add related concrete terms to allWords
+				if (group.related) {
+					group.related.forEach((term) => allWords.add(term));
+				}
+				if (group.iconTypes) {
+					group.iconTypes.forEach((type) => allWords.add(type));
+				}
+			}
+		}
+
+		// Then process each word in the description
 		for (const descWord of descWords) {
 			let wordBestScore = 0;
 			let hasSynonymMatch = false;
+			let hasConceptualMatch = false;
 
 			for (const targetWord of allWords) {
 				const similarity = SimilarityEngine.calculateNGramSimilarity(descWord, targetWord, 2);
 
-				// Check for synonym matches
+				// Check for direct synonym matches
 				if (this.areSynonyms(descWord, targetWord)) {
 					hasSynonymMatch = true;
-					wordBestScore = Math.max(wordBestScore, similarity * 1.2);
+					wordBestScore = Math.max(wordBestScore, similarity * SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.SYNONYM_MATCH_BOOST);
+				}
+				// Check for conceptual matches
+				else if (this.hasConceptualMatch(descWord, [targetWord])) {
+					hasConceptualMatch = true;
+					wordBestScore = Math.max(wordBestScore, similarity * SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.CONCEPT_RELATION_BOOST);
 				} else {
 					wordBestScore = Math.max(wordBestScore, similarity);
 				}
@@ -465,7 +495,10 @@ export class SearchService {
 			}
 
 			if (hasSynonymMatch) {
-				synonymMatchBoost += 0.1;
+				synonymMatchBoost += SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.SYNONYM_MATCH_BOOST * 0.1;
+			}
+			if (hasConceptualMatch) {
+				synonymMatchBoost += SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.CONCEPT_RELATION_BOOST * 0.1;
 			}
 
 			semanticScore += wordBestScore;
@@ -475,10 +508,46 @@ export class SearchService {
 		const avgScore = semanticScore / descWords.length;
 		const matchRatio = matchCount / (descWords.length * allWords.size);
 
+		// Combine all scores with appropriate weights
 		return Math.min(
 			1,
-			avgScore * 0.6 + maxScore * 0.3 + matchRatio * SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.SEMANTIC_GROUP_BOOST + synonymMatchBoost
+			avgScore * 0.4 +
+				maxScore * 0.2 +
+				matchRatio * SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.SEMANTIC_GROUP_BOOST * 0.2 +
+				abstractConceptBoost * 0.3 +
+				synonymMatchBoost
 		);
+	}
+
+	/**
+	 * Check for conceptual matches between terms
+	 */
+	private hasConceptualMatch(term: string, targetTerms: string[]): boolean {
+		// Check in semantic groups
+		for (const group of Object.values(SEMANTIC_GROUPS)) {
+			const conceptWords = group.words.map((w) => w.word);
+			if (conceptWords.includes(term)) {
+				// If term is in concept words, check if any target terms are in related or iconTypes
+				const hasRelatedMatch = group.related ? group.related.includes(targetTerms[0]) : false;
+				const hasIconTypeMatch = group.iconTypes ? group.iconTypes.includes(targetTerms[0]) : false;
+				return hasRelatedMatch || hasIconTypeMatch;
+			}
+			// Check if any target terms are concept words and term is in related or iconTypes
+			if (targetTerms.some((target) => conceptWords.includes(target))) {
+				const hasRelatedMatch = group.related ? group.related.includes(term) : false;
+				const hasIconTypeMatch = group.iconTypes ? group.iconTypes.includes(term) : false;
+				return hasRelatedMatch || hasIconTypeMatch;
+			}
+		}
+
+		// Check in synonym groups
+		for (const [_, terms] of Object.entries(SYNONYM_GROUPS)) {
+			if (terms.includes(term)) {
+				return targetTerms.some((target) => terms.includes(target));
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -486,7 +555,7 @@ export class SearchService {
 	 */
 	private areSynonyms(term1: string, term2: string): boolean {
 		// Check direct synonyms
-		for (const [key, synonyms] of Object.entries(SYNONYMS)) {
+		for (const [key, synonyms] of Object.entries(SYNONYM_MAP) as Array<[string, readonly string[]]>) {
 			if (
 				(key === term1 && synonyms.includes(term2)) ||
 				(key === term2 && synonyms.includes(term1)) ||
@@ -497,7 +566,7 @@ export class SearchService {
 		}
 
 		// Check synonym groups
-		for (const [_, terms] of Object.entries(SYNONYM_GROUPS)) {
+		for (const [_, terms] of Object.entries(SYNONYM_GROUPS) as Array<[string, readonly string[]]>) {
 			if (terms.includes(term1) && terms.includes(term2)) {
 				return true;
 			}
@@ -591,7 +660,7 @@ export class SearchService {
 		}
 
 		// Check semantic group matches
-		for (const [group, terms] of Object.entries(SYNONYM_GROUPS)) {
+		for (const [group, terms] of Object.entries(SYNONYM_GROUPS) as Array<[string, readonly string[]]>) {
 			if (terms.some((term) => queryPart.includes(term))) {
 				score += SEARCH_ENGINE_CONFIG.SEARCH_PARAMS.SEMANTIC_GROUP_BOOST;
 				break;

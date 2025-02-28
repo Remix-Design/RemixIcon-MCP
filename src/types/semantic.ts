@@ -40,13 +40,13 @@ export interface CategoryWeight {
 /**
  * Synonym configuration
  */
-export interface SynonymMap {
-	[key: string]: string[];
-}
+export type SynonymMap = {
+	readonly [key: string]: readonly string[];
+};
 
 /**
  * Synonym group configuration
  */
-export interface SynonymGroupMap {
-	[key: string]: string[];
-}
+export type SynonymGroupMap = {
+	readonly [key: string]: readonly string[];
+};
