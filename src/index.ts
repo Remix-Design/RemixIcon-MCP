@@ -21,13 +21,10 @@ interface ResponseContent {
 }
 
 interface SimilarityWeights {
-	jaccard: number;
-	ngram: number;
+	cosine: number;
 	category: number;
-	exact: number;
-	levenshtein: number;
-	nameMatch: number;
 	tags: number;
+	nameMatch: number;
 }
 
 export default class RemixIconMCP extends WorkerEntrypoint<Env> {
@@ -39,13 +36,10 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 	// Similarity weights for different algorithms
 	private readonly weights: SimilarityWeights = {
-		jaccard: 0.25,
-		ngram: 0.15,
-		category: 0.15,
-		exact: 0.15,
-		levenshtein: 0.05,
-		nameMatch: 0.1,
-		tags: 0.15,
+		cosine: 0.4, // Main text similarity algorithm
+		category: 0.2, // Category weight
+		tags: 0.2, // Tags weight
+		nameMatch: 0.2, // Name match weight
 	};
 
 	// Cache for similarity calculations with LRU-like behavior
@@ -145,18 +139,15 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		}
 
 		const scores: { [key: string]: number } = {
-			jaccard: this.calculateJaccardSimilarity(description, usage),
-			ngram: this.calculateNGramSimilarity(description, usage, 2),
+			cosine: this.calculateCosineSimilarity(description, usage),
 			category: this.calculateCategoryScore(description, category),
-			exact: this.calculateExactMatchScore(description, usage),
-			levenshtein: this.calculateLevenshteinSimilarity(description, usage),
-			nameMatch: this.calculateNameMatchScore(description, name),
 			tags: this.calculateTagsScore(description, tags || []),
+			nameMatch: this.calculateNameMatchScore(description, name),
 		};
 
-		// Apply boosting for high-confidence matches
-		if (scores.exact > 0.8 || scores.nameMatch > 0.8) {
-			return Math.min(1, scores.exact * 1.2);
+		// Apply boosting for high-confidence name matches
+		if (scores.nameMatch > 0.8) {
+			return Math.min(1, scores.nameMatch * 1.2);
 		}
 
 		// Calculate weighted sum
@@ -213,85 +204,96 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	}
 
 	/**
-	 * Calculate Jaccard similarity between two strings with Chinese support
+	 * Calculate cosine similarity between two strings
+	 * Handles both English and Chinese text
 	 * @private
 	 */
-	private calculateJaccardSimilarity(str1: string, str2: string): number {
-		const words1 = new Set(this.splitWords(str1.toLowerCase()));
-		const words2 = new Set(this.splitWords(str2.toLowerCase()));
+	private calculateCosineSimilarity(str1: string, str2: string): number {
+		// Get word vectors including Chinese characters
+		const words1 = this.splitWords(str1);
+		const words2 = this.splitWords(str2);
 
-		const intersection = new Set([...words1].filter((x) => words2.has(x)));
-		const union = new Set([...words1, ...words2]);
+		// Create term frequency maps
+		const tf1 = new Map<string, number>();
+		const tf2 = new Map<string, number>();
 
-		return intersection.size / union.size;
+		// Calculate term frequencies for str1
+		words1.forEach((word) => {
+			tf1.set(word, (tf1.get(word) || 0) + 1);
+		});
+
+		// Calculate term frequencies for str2
+		words2.forEach((word) => {
+			tf2.set(word, (tf2.get(word) || 0) + 1);
+		});
+
+		// Get unique terms
+		const uniqueTerms = new Set([...tf1.keys(), ...tf2.keys()]);
+
+		// Calculate dot product and magnitudes
+		let dotProduct = 0;
+		let magnitude1 = 0;
+		let magnitude2 = 0;
+
+		uniqueTerms.forEach((term) => {
+			const freq1 = tf1.get(term) || 0;
+			const freq2 = tf2.get(term) || 0;
+
+			dotProduct += freq1 * freq2;
+			magnitude1 += freq1 * freq1;
+			magnitude2 += freq2 * freq2;
+		});
+
+		// Avoid division by zero
+		if (magnitude1 === 0 || magnitude2 === 0) {
+			return 0;
+		}
+
+		// Calculate cosine similarity
+		return dotProduct / (Math.sqrt(magnitude1) * Math.sqrt(magnitude2));
 	}
 
 	/**
-	 * Calculate N-gram similarity between two strings with improved Chinese support
-	 * @private
+	 * Get all available icon categories
+	 * @return {Array<ResponseContent>} List of all unique icon categories formatted as text content
 	 */
-	private calculateNGramSimilarity(str1: string, str2: string, n: number): number {
-		// For Chinese text, use character-level comparison
-		const str1Chinese = str1.match(/[\u4e00-\u9fa5]+/g) || [];
-		const str2Chinese = str2.match(/[\u4e00-\u9fa5]+/g) || [];
+	getIconCategories(): ResponseContent[] {
+		// Extract all categories and remove duplicates
+		const categories = new Set<string>();
 
-		// Calculate Chinese similarity
-		const chineseSimilarity = this.calculateChineseNGramSimilarity(str1Chinese.join(''), str2Chinese.join(''), 1);
+		iconCatalog.icons.forEach((icon) => {
+			categories.add(icon.category);
+		});
 
-		// Calculate non-Chinese similarity
-		const nonChineseSimilarity = this.calculateNonChineseNGramSimilarity(
-			str1.replace(/[\u4e00-\u9fa5]+/g, ' '),
-			str2.replace(/[\u4e00-\u9fa5]+/g, ' '),
-			n
-		);
-
-		// Weight the scores based on the proportion of Chinese characters
-		const chineseRatio = (str1Chinese.join('').length + str2Chinese.join('').length) / (str1.length + str2.length);
-
-		return chineseSimilarity * chineseRatio + nonChineseSimilarity * (1 - chineseRatio);
+		// Convert to the expected response format
+		return Array.from(categories)
+			.sort()
+			.map((category) => ({
+				type: 'text' as const,
+				text: category,
+			}));
 	}
 
 	/**
-	 * Calculate N-gram similarity for Chinese text
-	 * @private
+	 * Search for icons in a specific category
+	 * @param category {string} The category to search in
+	 * @param limit {number} Maximum number of icons to return (default: 10)
+	 * @return {Array<ResponseContent>} List of icons in the specified category formatted as text content
 	 */
-	private calculateChineseNGramSimilarity(str1: string, str2: string, n: number): number {
-		if (!str1 || !str2) return 0;
+	searchIconsByCategory(category: string, limit: number = 10): ResponseContent[] {
+		// Filter icons by the specified category
+		const filteredIcons = iconCatalog.icons
+			.filter((icon) => icon.category.toLowerCase() === category.toLowerCase())
+			.map((icon) => ({
+				name: icon.name,
+			}))
+			.slice(0, limit);
 
-		const getNGrams = (str: string, n: number) => {
-			const ngrams = new Set<string>();
-			for (let i = 0; i <= str.length - n; i++) {
-				ngrams.add(str.slice(i, i + n));
-			}
-			return ngrams;
-		};
-
-		const ngrams1 = getNGrams(str1, n);
-		const ngrams2 = getNGrams(str2, n);
-
-		const intersection = new Set([...ngrams1].filter((x) => ngrams2.has(x)));
-		return (2.0 * intersection.size) / (ngrams1.size + ngrams2.size);
-	}
-
-	/**
-	 * Calculate N-gram similarity for non-Chinese text
-	 * @private
-	 */
-	private calculateNonChineseNGramSimilarity(str1: string, str2: string, n: number): number {
-		const getNGrams = (str: string, n: number) => {
-			const ngrams = new Set<string>();
-			str = str.toLowerCase().trim();
-			for (let i = 0; i <= str.length - n; i++) {
-				ngrams.add(str.slice(i, i + n));
-			}
-			return ngrams;
-		};
-
-		const ngrams1 = getNGrams(str1, n);
-		const ngrams2 = getNGrams(str2, n);
-
-		const intersection = new Set([...ngrams1].filter((x) => ngrams2.has(x)));
-		return (2.0 * intersection.size) / (ngrams1.size + ngrams2.size);
+		// Convert to the expected response format
+		return filteredIcons.map((icon) => ({
+			type: 'text' as const,
+			text: icon.name,
+		}));
 	}
 
 	/**
@@ -408,95 +410,6 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		// Combine average score and best match score
 		const avgScore = totalScore / tags.length;
 		return Math.min(1, avgScore * 0.7 + maxTagScore * 0.3);
-	}
-
-	/**
-	 * Get all available icon categories
-	 * @return {Array<ResponseContent>} List of all unique icon categories formatted as text content
-	 */
-	getIconCategories(): ResponseContent[] {
-		// Extract all categories and remove duplicates
-		const categories = new Set<string>();
-
-		iconCatalog.icons.forEach((icon) => {
-			categories.add(icon.category);
-		});
-
-		// Convert to the expected response format
-		return Array.from(categories)
-			.sort()
-			.map((category) => ({
-				type: 'text' as const,
-				text: category,
-			}));
-	}
-
-	/**
-	 * Search for icons in a specific category
-	 * @param category {string} The category to search in
-	 * @param limit {number} Maximum number of icons to return (default: 10)
-	 * @return {Array<ResponseContent>} List of icons in the specified category formatted as text content
-	 */
-	searchIconsByCategory(category: string, limit: number = 10): ResponseContent[] {
-		// Filter icons by the specified category
-		const filteredIcons = iconCatalog.icons
-			.filter((icon) => icon.category.toLowerCase() === category.toLowerCase())
-			.map((icon) => ({
-				name: icon.name,
-			}))
-			.slice(0, limit);
-
-		// Convert to the expected response format
-		return filteredIcons.map((icon) => ({
-			type: 'text' as const,
-			text: icon.name,
-		}));
-	}
-
-	/**
-	 * Calculate exact match score between two strings
-	 * @private
-	 */
-	private calculateExactMatchScore(str1: string, str2: string): number {
-		const words1 = new Set(str1.split(/\s+/));
-		const words2 = new Set(str2.split(/\s+/));
-		const exactMatches = [...words1].filter((word) => words2.has(word)).length;
-		return exactMatches / Math.max(words1.size, words2.size);
-	}
-
-	/**
-	 * Calculate Levenshtein distance based similarity
-	 * @private
-	 */
-	private calculateLevenshteinSimilarity(str1: string, str2: string): number {
-		const matrix: number[][] = [];
-
-		// Initialize matrix
-		for (let i = 0; i <= str1.length; i++) {
-			matrix[i] = [i];
-		}
-		for (let j = 0; j <= str2.length; j++) {
-			matrix[0][j] = j;
-		}
-
-		// Fill matrix
-		for (let i = 1; i <= str1.length; i++) {
-			for (let j = 1; j <= str2.length; j++) {
-				if (str1[i - 1] === str2[j - 1]) {
-					matrix[i][j] = matrix[i - 1][j - 1];
-				} else {
-					matrix[i][j] = Math.min(
-						matrix[i - 1][j - 1] + 1, // substitution
-						matrix[i][j - 1] + 1, // insertion
-						matrix[i - 1][j] + 1 // deletion
-					);
-				}
-			}
-		}
-
-		// Convert distance to similarity score (0-1)
-		const maxLength = Math.max(str1.length, str2.length);
-		return 1 - matrix[str1.length][str2.length] / maxLength;
 	}
 
 	/**
