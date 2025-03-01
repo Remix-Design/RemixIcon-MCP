@@ -1,6 +1,11 @@
-// Export semantic configurations
-export { SEMANTIC_GROUPS, SEMANTIC_WEIGHTS, SYNONYM_GROUPS, SYNONYM_MAP } from './semantic';
-
-// Export other configurations
+// Export core configurations
 export * from './search';
-export * from './weights';
+
+// Export semantic configurations
+export { SEMANTIC_GROUPS } from './semantic';
+
+// Export weight configurations
+export { weights } from './weights';
+
+// Export synonym configurations
+export { synonyms } from './synonyms';

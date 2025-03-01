@@ -1,6 +1,7 @@
 ---
 description: 
 globs: *
+alwaysApply: true
 ---
 - When I mentioned “Ready to release”, I meant:
   - Retrieve the codebase, updating the [README.md](mdc:README.md), and then rewriting the [README.zh-CN.md](mdc:README.zh-CN.md) based on the updated README.

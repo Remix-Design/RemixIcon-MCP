@@ -1,4 +1,13 @@
 /**
+ * Base semantic metadata interface
+ */
+export interface SemanticMetadata {
+	description?: string;
+	category?: string;
+	priority?: number;
+}
+
+/**
  * Semantic word definition with weight and aliases
  */
 export interface SemanticWord {
@@ -15,11 +24,7 @@ export interface SemanticGroup {
 	weight: number;
 	related: string[];
 	iconTypes?: string[];
-	metadata?: {
-		description?: string;
-		category?: string;
-		priority?: number;
-	};
+	metadata?: SemanticMetadata;
 }
 
 /**
@@ -38,15 +43,11 @@ export interface CategoryWeight {
 }
 
 /**
- * Synonym configuration
+ * Readonly synonym mappings
  */
-export type SynonymMap = {
-	readonly [key: string]: readonly string[];
-};
+export type SynonymMap = Readonly<Record<string, readonly string[]>>;
 
 /**
- * Synonym group configuration
+ * Readonly synonym group mappings
  */
-export type SynonymGroupMap = {
-	readonly [key: string]: readonly string[];
-};
+export type SynonymGroupMap = Readonly<Record<string, readonly string[]>>;

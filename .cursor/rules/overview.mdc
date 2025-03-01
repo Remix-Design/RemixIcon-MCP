@@ -3,18 +3,55 @@ description: A powerful icon search and recommendation service built on Cloudfla
 globs: 
 alwaysApply: true
 ---
+## Project Overview
+
 - **Runtime**: Node.js
 - **Platform**: Cloudflare Workers
 - **Language**: TypeScript
 - **Testing**: Vitest (with @cloudflare/vitest-pool-workers)
 - **Package Manager**: npm
-- **Main Dependencies**:
-  - workers-mcp: ^0.0.13
-- **Dev Dependencies**:
-  - wrangler: ^3.110.0
-  - typescript: ^5.5.2
-  - vitest: ~2.1.9
-- **Scripts**:
-  - deploy: workers-mcp docgen and wrangler deploy
-  - dev/start: wrangler dev
-  - test: vitest
+
+## Project Structure
+
+```
+.
+├── src/                   # Source code directory
+│   ├── index.ts           # Main entry point
+│   ├── config/            # Configuration files
+│   ├── services/          # Service implementations
+│   ├── utils/             # Utility functions
+│   ├── types/             # TypeScript type definitions
+│   └── icon-catalog.json  # Icon metadata catalog
+├── dist/                  # Compiled output
+├── .wrangler/             # Wrangler (Cloudflare Workers) config
+└── tests/                 # Test files
+```
+
+## Main Dependencies
+
+### Production Dependencies
+- workers-mcp: ^0.0.13
+
+### Development Dependencies
+- wrangler: ^3.110.0
+- typescript: ^5.5.2
+- vitest: ~2.1.9
+
+## Scripts
+
+- `deploy`: Generate MCP documentation and deploy to Cloudflare Workers
+- `dev/start`: Run development server with Wrangler
+- `test`: Run tests with Vitest
+
+## Configuration
+
+The project uses:
+- `wrangler.jsonc` for Cloudflare Workers configuration
+- `tsconfig.json` for TypeScript settings
+- `.prettierrc` for code formatting
+- `.editorconfig` for editor settings
+
+## Documentation
+
+- English: README.md
+- 中文: README.zh-CN.md 
