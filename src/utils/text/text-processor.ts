@@ -13,7 +13,22 @@ export class TextProcessor {
 			return '';
 		}
 
-		return input.toLowerCase().trim().replace(/\s+/g, ' ');
+		// Convert to lowercase and trim
+		let normalized = input.toLowerCase().trim();
+
+		// Replace hyphens, underscores, and dots with spaces
+		normalized = normalized.replace(/[-_.]/g, ' ');
+
+		// Handle camelCase and PascalCase by adding spaces
+		normalized = normalized.replace(/([a-z])([A-Z])/g, '$1 $2');
+
+		// Remove special characters except spaces and alphanumeric
+		normalized = normalized.replace(/[^\w\s]/g, '');
+
+		// Replace multiple spaces with a single space
+		normalized = normalized.replace(/\s+/g, ' ');
+
+		return normalized;
 	}
 
 	/**
@@ -39,9 +54,28 @@ export class TextProcessor {
 			return [];
 		}
 
-		return this.normalizeInput(input)
-			.split(/\s+/)
+		// Normalize input first
+		const normalized = this.normalizeInput(input);
+
+		// Split on spaces and word boundaries
+		const words = normalized
+			.split(/[\s\b]+/)
+			.map((word) => word.trim())
 			.filter((word) => word.length > 0);
+
+		// Handle compound words by also including the full word
+		const result = new Set<string>();
+		for (const word of words) {
+			result.add(word);
+
+			// Add original compound word if it exists
+			const compoundParts = word.match(/[a-z]+/gi);
+			if (compoundParts && compoundParts.length > 1) {
+				result.add(compoundParts.join(''));
+			}
+		}
+
+		return Array.from(result);
 	}
 
 	/**
@@ -57,9 +91,9 @@ export class TextProcessor {
 
 		const normalizedText = this.normalizeInput(text);
 		const normalizedWord = this.normalizeInput(word);
-		const words = normalizedText.split(/\s+/);
+		const words = this.splitIntoWords(normalizedText);
 
-		return words.includes(normalizedWord);
+		return words.some((w) => w === normalizedWord);
 	}
 
 	/**
@@ -76,8 +110,9 @@ export class TextProcessor {
 		const frequency = new Map<string, number>();
 
 		for (const word of words) {
-			const count = frequency.get(word) || 0;
-			frequency.set(word, count + 1);
+			const normalized = this.normalizeInput(word);
+			const count = frequency.get(normalized) || 0;
+			frequency.set(normalized, count + 1);
 		}
 
 		return frequency;
@@ -93,8 +128,9 @@ export class TextProcessor {
 			return '';
 		}
 
+		const normalized = this.normalizeInput(word);
 		const suffixes = ['ing', 'ed', 'er', 'ers', 'tion', 'ions', 'ies', 'es', 's'];
-		let stem = word.toLowerCase();
+		let stem = normalized;
 
 		for (const suffix of suffixes) {
 			if (stem.endsWith(suffix)) {
@@ -194,8 +230,7 @@ export class TextProcessor {
 			'now',
 		]);
 
-		return this.splitIntoWords(text)
-			.filter((word) => !stopwords.has(word))
-			.join(' ');
+		const words = this.splitIntoWords(text);
+		return words.filter((word) => !stopwords.has(word)).join(' ');
 	}
 }

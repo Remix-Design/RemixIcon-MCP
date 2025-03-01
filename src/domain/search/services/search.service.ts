@@ -124,10 +124,7 @@ export class SearchService {
 	 * @private
 	 */
 	private preprocessParams(params: SearchParams): SearchParams {
-		return {
-			...params,
-			description: this.queryProcessor.processQuery(params.description),
-		};
+		return this.queryProcessor.process(params);
 	}
 
 	/**

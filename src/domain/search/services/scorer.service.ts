@@ -1,6 +1,5 @@
 import { ILogger } from '../../../infrastructure/logging/logger';
 import { SimilarityEngine } from '../../../utils/similarity/similarity';
-import { SEMANTIC_GROUPS } from '../config/semantic.config';
 import { SearchConfig, SearchParams, SearchScores } from '../types/search.types';
 
 /**
@@ -65,7 +64,6 @@ export class ScorerService implements IScorer {
 			category: this.calculateCategoryScore(params.description, params.category),
 			tags: this.calculateTagsScore(params.description, params.tags),
 			nameMatch: this.calculateNameMatchScore(params.description, params.name),
-			semantic: this.calculateSemanticScore(params),
 			contextual: this.calculateContextualScore(params),
 		};
 	}
@@ -100,8 +98,10 @@ export class ScorerService implements IScorer {
 
 		for (const [key, score] of Object.entries(scores)) {
 			const weight = weights[key as keyof typeof weights];
-			totalScore += score * weight;
-			totalWeight += weight;
+			if (weight) {
+				totalScore += score * weight;
+				totalWeight += weight;
+			}
 		}
 
 		return Math.min(1, Math.max(0, totalWeight > 0 ? totalScore / totalWeight : 0));
@@ -133,19 +133,7 @@ export class ScorerService implements IScorer {
 		if (!description || !category) {
 			return 0;
 		}
-
-		const descWords = description.toLowerCase().split(/\s+/);
-		const catWords = category.toLowerCase().split(/\s+/);
-
-		let maxScore = 0;
-		for (const descWord of descWords) {
-			for (const catWord of catWords) {
-				const similarity = SimilarityEngine.calculateNormalizedEditDistance(descWord, catWord);
-				maxScore = Math.max(maxScore, similarity);
-			}
-		}
-
-		return maxScore;
+		return SimilarityEngine.calculateComprehensiveSimilarity(description, category);
 	}
 
 	/**
@@ -160,24 +148,19 @@ export class ScorerService implements IScorer {
 			return 0;
 		}
 
-		const descWords = description.toLowerCase().split(/\s+/);
-		let totalScore = 0;
-
-		for (const tag of tags) {
-			const tagWords = tag.toLowerCase().split(/\s+/);
-			let tagScore = 0;
-
-			for (const descWord of descWords) {
-				for (const tagWord of tagWords) {
-					const similarity = SimilarityEngine.calculateNormalizedEditDistance(descWord, tagWord);
-					tagScore = Math.max(tagScore, similarity);
-				}
+		// Calculate similarity for each tag
+		const tagScores = tags.map((tag) => {
+			const similarity = SimilarityEngine.calculateComprehensiveSimilarity(description, tag);
+			// Boost exact matches and partial matches
+			if (description.toLowerCase().includes(tag.toLowerCase())) {
+				return similarity * 1.5;
 			}
+			return similarity;
+		});
 
-			totalScore += tagScore;
-		}
-
-		return totalScore / tags.length;
+		// Get the top 3 most relevant tag scores
+		const topScores = tagScores.sort((a, b) => b - a).slice(0, 3);
+		return topScores.length > 0 ? topScores.reduce((a, b) => a + b) / topScores.length : 0;
 	}
 
 	/**
@@ -192,97 +175,33 @@ export class ScorerService implements IScorer {
 			return 0;
 		}
 
-		const descWords = description.toLowerCase().split(/\s+/);
-		const nameWords = name.toLowerCase().split(/\s+/);
+		const similarity = SimilarityEngine.calculateComprehensiveSimilarity(description, name);
 
-		if (descWords.length === 0 || nameWords.length === 0) {
-			return 0;
+		// Apply additional boosts for name matches
+		const normalizedDesc = description.toLowerCase();
+		const normalizedName = name.toLowerCase();
+
+		let boost = 1.0;
+
+		// Boost for exact matches
+		if (normalizedDesc === normalizedName) {
+			boost = 2.0;
 		}
-
-		let totalScore = 0;
-		for (const descWord of descWords) {
-			for (const nameWord of nameWords) {
-				totalScore += SimilarityEngine.calculateNormalizedEditDistance(descWord, nameWord);
+		// Boost for partial matches
+		else if (normalizedDesc.includes(normalizedName) || normalizedName.includes(normalizedDesc)) {
+			boost = 1.5;
+		}
+		// Boost for word matches
+		else {
+			const descWords = normalizedDesc.split(/\s+/);
+			const nameWords = normalizedName.split(/[-_\s]+/);
+			const commonWords = descWords.filter((word) => nameWords.some((nameWord) => nameWord.includes(word)));
+			if (commonWords.length > 0) {
+				boost = 1.2 + 0.1 * commonWords.length;
 			}
 		}
 
-		return totalScore / (descWords.length * nameWords.length);
-	}
-
-	/**
-	 * Calculates semantic similarity based on semantic groups
-	 * @param params - Search parameters
-	 * @returns Semantic similarity score between 0 and 1
-	 * @private
-	 */
-	private calculateSemanticScore(params: SearchParams): number {
-		const { description } = params;
-
-		if (!description) {
-			return 0;
-		}
-
-		const descWords = description.toLowerCase().split(/\s+/);
-
-		if (descWords.length === 0) {
-			return 0;
-		}
-
-		let totalScore = 0;
-		let maxGroupScore = 0;
-
-		// Iterate through each semantic group
-		for (const group of Object.values(SEMANTIC_GROUPS)) {
-			let groupScore = 0;
-
-			// 1. Direct word matching
-			for (const descWord of descWords) {
-				let wordScore = 0;
-				// Check each word in the group
-				for (const semanticWord of group.words) {
-					const similarity = SimilarityEngine.calculateNormalizedEditDistance(descWord, semanticWord.word);
-					wordScore = Math.max(wordScore, similarity * (semanticWord.weight || 1.0));
-				}
-				groupScore += wordScore;
-			}
-
-			// 2. Related word matching
-			for (const descWord of descWords) {
-				let relatedScore = 0;
-				for (const relatedWord of group.related) {
-					const similarity = SimilarityEngine.calculateNormalizedEditDistance(descWord, relatedWord);
-					relatedScore = Math.max(relatedScore, similarity * 0.8); // Related words have slightly lower weight
-				}
-				groupScore += relatedScore;
-			}
-
-			// 3. Icon type matching
-			if (group.iconTypes) {
-				for (const descWord of descWords) {
-					let iconScore = 0;
-					for (const iconType of group.iconTypes) {
-						const similarity = SimilarityEngine.calculateNormalizedEditDistance(descWord, iconType);
-						iconScore = Math.max(iconScore, similarity * 0.9); // Icon types have medium weight
-					}
-					groupScore += iconScore;
-				}
-			}
-
-			// Apply group weight and metadata priority
-			const priorityBoost = group.metadata?.priority ? group.metadata.priority / 5 : 1;
-			groupScore *= group.weight * priorityBoost;
-
-			// Update highest score
-			maxGroupScore = Math.max(maxGroupScore, groupScore);
-			totalScore += groupScore;
-		}
-
-		// Combined score: consider highest group score and overall score
-		const semanticGroupCount = Object.keys(SEMANTIC_GROUPS).length;
-		const normalizedScore = semanticGroupCount > 0 ? (maxGroupScore * 0.7 + (totalScore / semanticGroupCount) * 0.3) / descWords.length : 0;
-
-		// Ensure score is between 0 and 1
-		return Math.min(1, Math.max(0, normalizedScore));
+		return Math.min(1, similarity * boost);
 	}
 
 	/**
@@ -292,30 +211,75 @@ export class ScorerService implements IScorer {
 	 * @private
 	 */
 	private calculateContextualScore(params: SearchParams): number {
-		const { description, category, tags } = params;
+		const { description, category, tags, name, usage } = params;
 
 		if (!description || !category || !tags) {
 			return 0;
 		}
 
-		const descWords = description.toLowerCase().split(/\s+/);
+		const categoryScore = this.calculateCategoryScore(description, category);
+		const tagsScore = this.calculateTagsScore(description, tags);
+		const nameScore = this.calculateNameMatchScore(description, name);
+		const usageScore = this.calculateUsageScore(description, usage);
 
-		if (descWords.length === 0) {
+		// Enhanced weighting system
+		const weights = {
+			category: 0.25, // Increased category weight
+			tags: 0.25, // Increased tags weight
+			name: 0.35, // Highest weight for name matches
+			usage: 0.15, // Reduced usage weight
+		};
+
+		// Calculate weighted score
+		const totalScore = categoryScore * weights.category + tagsScore * weights.tags + nameScore * weights.name + usageScore * weights.usage;
+
+		// Apply additional context boost
+		const contextBoost = this.calculateContextBoost(params);
+
+		return Math.min(1, totalScore * contextBoost);
+	}
+
+	/**
+	 * Calculates a context-based boost factor
+	 * @param params - Search parameters
+	 * @returns Boost factor between 1.0 and 1.5
+	 * @private
+	 */
+	private calculateContextBoost(params: SearchParams): number {
+		const { description, category, tags, name } = params;
+
+		let boost = 1.0;
+
+		// Boost for category relevance
+		if (description.toLowerCase().includes(category.toLowerCase())) {
+			boost += 0.1;
+		}
+
+		// Boost for tag matches
+		const descWords = description.toLowerCase().split(/\s+/);
+		const tagMatches = tags.filter((tag) => descWords.some((word) => tag.toLowerCase().includes(word))).length;
+
+		if (tagMatches > 0) {
+			boost += Math.min(0.2, tagMatches * 0.05);
+		}
+
+		// Boost for name relevance
+		if (
+			name
+				.toLowerCase()
+				.split(/[-_\s]+/)
+				.some((part) => descWords.includes(part.toLowerCase()))
+		) {
+			boost += 0.1;
+		}
+
+		return Math.min(1.5, boost);
+	}
+
+	private calculateUsageScore(usage: string, targetUsage: string): number {
+		if (!usage || !targetUsage) {
 			return 0;
 		}
-
-		const contextWords = new Set([...category.toLowerCase().split(/\s+/), ...tags.map((tag) => tag.toLowerCase())]);
-
-		let totalScore = 0;
-		for (const word of descWords) {
-			let maxScore = 0;
-			for (const contextWord of contextWords) {
-				const similarity = SimilarityEngine.calculateNormalizedEditDistance(word, contextWord);
-				maxScore = Math.max(maxScore, similarity);
-			}
-			totalScore += maxScore;
-		}
-
-		return totalScore / descWords.length;
+		return SimilarityEngine.calculateComprehensiveSimilarity(usage, targetUsage);
 	}
 }

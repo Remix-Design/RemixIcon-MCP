@@ -39,17 +39,27 @@ export class SimilarityEngine {
 			return 1;
 		}
 
-		const ngrams1 = new Set(this.generateNGrams(str1, n));
-		const ngrams2 = new Set(this.generateNGrams(str2, n));
+		// Normalize inputs
+		str1 = TextProcessor.normalizeInput(str1);
+		str2 = TextProcessor.normalizeInput(str2);
 
-		if (ngrams1.size === 0 || ngrams2.size === 0) {
-			return 0;
-		}
+		// Generate n-grams for different sizes
+		const ngrams1_2 = new Set(this.generateNGrams(str1, 2));
+		const ngrams2_2 = new Set(this.generateNGrams(str2, 2));
+		const ngrams1_3 = new Set(this.generateNGrams(str1, 3));
+		const ngrams2_3 = new Set(this.generateNGrams(str2, 3));
 
-		const intersection = new Set([...ngrams1].filter((x) => ngrams2.has(x)));
-		const union = new Set([...ngrams1, ...ngrams2]);
+		// Calculate intersection and union for both n-gram sizes
+		const intersection2 = new Set([...ngrams1_2].filter((x) => ngrams2_2.has(x)));
+		const union2 = new Set([...ngrams1_2, ...ngrams2_2]);
+		const intersection3 = new Set([...ngrams1_3].filter((x) => ngrams2_3.has(x)));
+		const union3 = new Set([...ngrams1_3, ...ngrams2_3]);
 
-		return intersection.size / union.size;
+		// Calculate weighted average of similarities
+		const sim2 = intersection2.size / union2.size;
+		const sim3 = intersection3.size / union3.size;
+
+		return sim2 * 0.4 + sim3 * 0.6;
 	}
 
 	/**
@@ -93,29 +103,42 @@ export class SimilarityEngine {
 		const freqMap1 = TextProcessor.calculateWordFrequency(str1);
 		const freqMap2 = TextProcessor.calculateWordFrequency(str2);
 
-		// Get all unique words
-		const uniqueWords = new Set([...freqMap1.keys(), ...freqMap2.keys()]);
-
-		// Calculate dot product
+		// Calculate dot product with fuzzy matching and n-gram similarity
 		let dotProduct = 0;
 		let magnitude1 = 0;
 		let magnitude2 = 0;
 
-		for (const word of uniqueWords) {
-			const freq1 = freqMap1.get(word) || 0;
-			const freq2 = freqMap2.get(word) || 0;
-
-			dotProduct += freq1 * freq2;
+		for (const word1 of freqMap1.keys()) {
+			const freq1 = freqMap1.get(word1) || 0;
 			magnitude1 += freq1 * freq1;
+
+			// Find best matching word in str2
+			let bestMatch = 0;
+			for (const word2 of freqMap2.keys()) {
+				const editSimilarity = this.calculateNormalizedEditDistance(word1, word2);
+				const ngramSimilarity = this.calculateNGramSimilarity(word1, word2);
+				const similarity = Math.max(editSimilarity, ngramSimilarity);
+
+				if (similarity > 0.4) {
+					const freq2 = freqMap2.get(word2) || 0;
+					const matchBonus = word1 === word2 ? 1.2 : 1.0; // Boost exact matches
+					bestMatch = Math.max(bestMatch, freq1 * freq2 * similarity * matchBonus);
+				}
+			}
+			dotProduct += bestMatch;
+		}
+
+		for (const word2 of freqMap2.keys()) {
+			const freq2 = freqMap2.get(word2) || 0;
 			magnitude2 += freq2 * freq2;
 		}
 
-		// Calculate cosine similarity
 		if (magnitude1 === 0 || magnitude2 === 0) {
 			return 0;
 		}
 
-		return dotProduct / (Math.sqrt(magnitude1) * Math.sqrt(magnitude2));
+		const similarity = dotProduct / (Math.sqrt(magnitude1) * Math.sqrt(magnitude2));
+		return Math.min(1, similarity * 1.2); // Boost similarity slightly
 	}
 
 	/**
@@ -136,11 +159,19 @@ export class SimilarityEngine {
 			return 0;
 		}
 
-		// Calculate intersection and union
-		const intersection = new Set([...words1].filter((word) => words2.has(word)));
-		const union = new Set([...words1, ...words2]);
+		// Calculate intersection with fuzzy matching
+		let intersectionCount = 0;
+		for (const word1 of words1) {
+			for (const word2 of words2) {
+				if (word1 === word2 || this.calculateNormalizedEditDistance(word1, word2) > 0.5) {
+					intersectionCount++;
+					break;
+				}
+			}
+		}
 
-		return intersection.size / union.size;
+		const union = new Set([...words1, ...words2]);
+		return intersectionCount / union.size;
 	}
 
 	/**
@@ -209,18 +240,63 @@ export class SimilarityEngine {
 			return 0;
 		}
 
-		// Count matching words
+		// Count matching words with fuzzy matching
 		let matchCount = 0;
 		for (const word1 of words1) {
 			for (const word2 of words2) {
-				if (word1 === word2 || this.calculateNormalizedEditDistance(word1, word2) > 0.8) {
+				if (word1 === word2 || this.calculateNormalizedEditDistance(word1, word2) > 0.5) {
 					matchCount++;
 					break;
 				}
 			}
 		}
 
-		// Normalize by the length of the shorter string
-		return matchCount / Math.min(words1.length, words2.length);
+		// Use a more lenient normalization factor
+		const normalizationFactor = Math.max(words1.length, words2.length);
+		return matchCount / normalizationFactor;
+	}
+
+	/**
+	 * Calculates a comprehensive similarity score combining multiple metrics
+	 * @param str1 - First string
+	 * @param str2 - Second string
+	 * @returns Combined similarity score between 0 and 1
+	 */
+	static calculateComprehensiveSimilarity(str1: string, str2: string): number {
+		if (!str1 || !str2) {
+			return 0;
+		}
+
+		if (str1 === str2) {
+			return 1;
+		}
+
+		// Calculate individual similarity scores
+		const cosineSim = this.calculateCosineSimilarity(str1, str2);
+		const jaccardSim = this.calculateJaccardSimilarity(str1, str2);
+		const ngramSim = this.calculateNGramSimilarity(str1, str2);
+		const overlapSim = this.calculateWordOverlapSimilarity(str1, str2);
+
+		// Calculate prefix bonus
+		const prefixLength = this.commonPrefixLength(TextProcessor.normalizeInput(str1), TextProcessor.normalizeInput(str2));
+		const prefixBonus = prefixLength > 0 ? prefixLength / Math.max(str1.length, str2.length) : 0;
+
+		// Calculate exact word match bonus
+		const words1 = new Set(TextProcessor.splitIntoWords(str1));
+		const words2 = new Set(TextProcessor.splitIntoWords(str2));
+		const exactMatches = [...words1].filter((w) => words2.has(w)).length;
+		const exactMatchBonus = exactMatches > 0 ? exactMatches / Math.max(words1.size, words2.size) : 0;
+
+		// Weighted combination of scores
+		const combinedScore =
+			cosineSim * 0.3 + jaccardSim * 0.2 + ngramSim * 0.2 + overlapSim * 0.1 + prefixBonus * 0.1 + exactMatchBonus * 0.1;
+
+		// Apply length penalty for very short matches
+		const shortestLength = Math.min(str1.length, str2.length);
+		const lengthPenalty = shortestLength < 3 ? 0.5 : 1;
+
+		// Boost score for very similar strings
+		const finalScore = combinedScore * lengthPenalty;
+		return Math.min(1, finalScore * 1.2); // Apply final boost with cap at 1.0
 	}
 }

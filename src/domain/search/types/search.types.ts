@@ -24,11 +24,6 @@ export type Weights = {
 	nameMatch: number;
 
 	/**
-	 * Weight for semantic similarity
-	 */
-	semantic: number;
-
-	/**
 	 * Weight for contextual relevance
 	 */
 	contextual: number;
@@ -52,11 +47,6 @@ export type SearchConfig = {
 		 * Minimum similarity score to consider a match
 		 */
 		similarity: number;
-
-		/**
-		 * Minimum semantic score to consider a match
-		 */
-		semantic: number;
 
 		/**
 		 * Score threshold for high-quality matches
@@ -84,24 +74,16 @@ export type SearchConfig = {
 	 */
 	boosts: {
 		exactMatch: number;
-		synonymMatch: number;
-		conceptRelation: number;
-		semanticGroup: number;
+		nameMatch: number;
 		categoryMatch: number;
 		multiTerm: number;
 		compoundMatch: number;
-		semanticMatch: number;
-		abstractConcept: number;
-		nameMatch: number;
 		context: number;
 		multiCategory: number;
-		relatedTerm: number;
 		priority: number;
 		importance: number;
 		partialMatch: number;
 		coherence: number;
-		abstractWord: number;
-		concreteWord: number;
 	};
 
 	/**
@@ -141,11 +123,11 @@ export type SearchConfig = {
 };
 
 /**
- * Search parameters for icon search
+ * Search parameters
  */
 export interface SearchParams {
 	/**
-	 * User's search description
+	 * Search description
 	 */
 	description: string;
 
@@ -171,24 +153,15 @@ export interface SearchParams {
 }
 
 /**
- * Search scores using the same structure as weights
+ * Search scores for different aspects
  */
-export type SearchScores = Weights;
-
-/**
- * Icon search specific options
- */
-export interface IconSearchOptions {
-	/**
-	 * Whether this is a notification-related query
-	 */
-	isNotificationQuery: boolean;
-
-	/**
-	 * Set of categories related to notifications
-	 */
-	notificationCategories: Set<string>;
-}
+export type SearchScores = {
+	cosine: number;
+	category: number;
+	tags: number;
+	nameMatch: number;
+	contextual: number;
+};
 
 /**
  * Icon search result with scoring metadata
@@ -219,9 +192,3 @@ export type ScoredIcon = {
 	 */
 	relevanceBoost: number;
 };
-
-/**
- * Synonym group mapping type
- * Maps concept keys to arrays of related terms
- */
-export type SynonymGroupMap = Record<string, string[]>;

@@ -1,7 +1,4 @@
 /**
- * Search configuration module
- * Exports search configuration and semantic data
+ * Configuration exports
  */
-
 export * from './search.config';
-export * from './semantic.config';
