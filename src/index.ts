@@ -1,11 +1,14 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ProxyToSelf } from 'workers-mcp';
-import { DEFAULT_SEARCH_CONFIG } from './config';
-import iconCatalog from './icon-catalog.json';
-import { CacheManager, QueryProcessor, SearchScorer, SearchService } from './services/search';
-import { ResponseContent } from './types';
-import { TextProcessor } from './utils';
-import { Logger } from './utils/Logger';
+import iconCatalog from './data/icon-catalog.json';
+import { ResponseContent } from './domain/icon/types/icon.types';
+import { DEFAULT_SEARCH_CONFIG } from './domain/search/config';
+import { SearchService } from './domain/search/services';
+import { InMemoryCache } from './domain/search/services/cache.service';
+import { QueryService } from './domain/search/services/query.service';
+import { ScorerService } from './domain/search/services/scorer.service';
+import { ConsoleLogger, LogLevel } from './infrastructure/logging/logger';
+import { TextProcessor } from './utils/text/text-processor';
 
 /**
  * Main RemixIcon MCP implementation
@@ -195,10 +198,10 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 }
 
 export function createSearchService(): SearchService {
-	const logger = new Logger('SearchService');
-	const cache = new CacheManager(DEFAULT_SEARCH_CONFIG, logger);
-	const queryProcessor = new QueryProcessor(DEFAULT_SEARCH_CONFIG, logger);
-	const scorer = new SearchScorer(DEFAULT_SEARCH_CONFIG, logger);
+	const logger = new ConsoleLogger(LogLevel.DEBUG);
+	const cache = new InMemoryCache(DEFAULT_SEARCH_CONFIG, logger);
+	const queryProcessor = new QueryService(DEFAULT_SEARCH_CONFIG, logger);
+	const scorer = new ScorerService(DEFAULT_SEARCH_CONFIG, logger);
 
 	return new SearchService(scorer, cache, queryProcessor, DEFAULT_SEARCH_CONFIG, logger);
 }
