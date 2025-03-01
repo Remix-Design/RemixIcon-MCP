@@ -19,6 +19,8 @@ A powerful icon search and recommendation service built on Cloudflare Workers, p
   - Levenshtein Distance
   - Name Matching
   - Tag-based Matching
+- **Inverted Index**: Fast preliminary search using an inverted index
+- **Caching**: LRU caching for improved performance
 
 ## API Endpoints
 
@@ -26,7 +28,7 @@ A powerful icon search and recommendation service built on Cloudflare Workers, p
 ```typescript
 findIcons(description: string): ResponseContent[]
 ```
-Finds icons based on user description, returns top 3 recommendations with similarity scores.
+Finds icons based on user description, returns top 5 recommendations with similarity scores.
 
 ### Get Icon Categories
 ```typescript
@@ -34,11 +36,33 @@ getIconCategories(): ResponseContent[]
 ```
 Returns a list of all available icon categories.
 
-### Search Icons by Category
+### Find Icons by Category
 ```typescript
-searchIconsByCategory(category: string, limit: number = 10): ResponseContent[]
+findIconsByCategory(description: string, category: string): ResponseContent[]
 ```
-Searches for icons within a specific category with an optional limit.
+Searches for icons within a specific category based on description, returns top 5 recommendations.
+
+## Project Structure
+
+```
+.
+├── src/                   # Source code directory
+│   ├── index.ts           # Main entry point
+│   ├── data/              # Data files including icon catalog
+│   ├── domain/            # Domain models and services
+│   │   ├── icon/          # Icon domain models
+│   │   └── search/        # Search functionality
+│   ├── infrastructure/    # Infrastructure components
+│   │   ├── logging/       # Logging utilities
+│   │   └── result/        # Result handling
+│   └── utils/             # Utility functions
+│       ├── similarity/    # Similarity calculation algorithms
+│       └── text/          # Text processing utilities
+├── tests/                 # Test files
+│   ├── integration/       # Integration tests
+│   └── unit/              # Unit tests
+└── wrangler.jsonc         # Cloudflare Workers configuration
+```
 
 ## Technical Details
 
@@ -47,6 +71,7 @@ Searches for icons within a specific category with an optional limit.
 - Implements weighted multi-algorithm similarity scoring
 - Supports both character and word-level matching for Chinese text
 - Configurable similarity thresholds and weights
+- Uses inverted index for faster preliminary search
 
 ## Performance Optimization
 
@@ -54,6 +79,7 @@ Searches for icons within a specific category with an optional limit.
 - Maximum cache size: 2000 entries
 - Minimum score threshold: 0.08
 - Optimized similarity calculations for both English and Chinese text
+- Two-tier search strategy: inverted index for fast preliminary results, followed by detailed scoring
 
 ## Response Format
 
@@ -68,6 +94,22 @@ interface ResponseContent {
 ## Development
 
 This project is built using TypeScript and Cloudflare Workers. The main functionality is implemented in the `RemixIconMCP` class which extends `WorkerEntrypoint`.
+
+### Setup and Deployment
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Deploy to Cloudflare Workers
+npm run deploy
+
+# Run tests
+npm run test
+```
 
 ## License
 

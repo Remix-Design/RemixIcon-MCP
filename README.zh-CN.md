@@ -19,6 +19,8 @@
   - Levenshtein 距离
   - 名称匹配
   - 标签匹配
+- **倒排索引**：使用倒排索引进行快速初步搜索
+- **缓存机制**：采用 LRU 缓存提升性能
 
 ## API 接口
 
@@ -26,7 +28,7 @@
 ```typescript
 findIcons(description: string): ResponseContent[]
 ```
-根据用户描述查找图标，返回相似度最高的前 3 个推荐结果。
+根据用户描述查找图标，返回相似度最高的前 5 个推荐结果。
 
 ### 获取图标分类
 ```typescript
@@ -34,11 +36,33 @@ getIconCategories(): ResponseContent[]
 ```
 返回所有可用的图标分类列表。
 
-### 按分类搜索图标
+### 按分类查找图标
 ```typescript
-searchIconsByCategory(category: string, limit: number = 10): ResponseContent[]
+findIconsByCategory(description: string, category: string): ResponseContent[]
 ```
-在指定分类中搜索图标，可选择限制返回数量。
+在指定分类中基于描述搜索图标，返回相似度最高的前 5 个推荐结果。
+
+## 项目结构
+
+```
+.
+├── src/                   # 源代码目录
+│   ├── index.ts           # 主入口文件
+│   ├── data/              # 数据文件，包括图标目录
+│   ├── domain/            # 领域模型和服务
+│   │   ├── icon/          # 图标领域模型
+│   │   └── search/        # 搜索功能
+│   ├── infrastructure/    # 基础设施组件
+│   │   ├── logging/       # 日志工具
+│   │   └── result/        # 结果处理
+│   └── utils/             # 工具函数
+│       ├── similarity/    # 相似度计算算法
+│       └── text/          # 文本处理工具
+├── tests/                 # 测试文件
+│   ├── integration/       # 集成测试
+│   └── unit/              # 单元测试
+└── wrangler.jsonc         # Cloudflare Workers 配置
+```
 
 ## 技术细节
 
@@ -47,6 +71,7 @@ searchIconsByCategory(category: string, limit: number = 10): ResponseContent[]
 - 实现加权多算法相似度评分
 - 支持中文的字符级和词级匹配
 - 可配置的相似度阈值和权重
+- 使用倒排索引加速初步搜索
 
 ## 性能优化
 
@@ -54,6 +79,7 @@ searchIconsByCategory(category: string, limit: number = 10): ResponseContent[]
 - 最大缓存容量：2000 条
 - 最低相似度阈值：0.08
 - 针对中英文优化的相似度计算
+- 两级搜索策略：倒排索引用于快速初步结果，然后进行详细评分
 
 ## 响应格式
 
@@ -68,6 +94,22 @@ interface ResponseContent {
 ## 开发说明
 
 本项目使用 TypeScript 和 Cloudflare Workers 构建。主要功能在继承自 `WorkerEntrypoint` 的 `RemixIconMCP` 类中实现。
+
+### 设置与部署
+
+```bash
+# 安装依赖
+npm install
+
+# 运行开发服务器
+npm run dev
+
+# 部署到 Cloudflare Workers
+npm run deploy
+
+# 运行测试
+npm run test
+```
 
 ## 许可证
 

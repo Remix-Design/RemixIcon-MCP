@@ -1,6 +1,6 @@
 {
 	"name": "mcp-server-remix-icon",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "A powerful icon search and recommendation service built on Cloudflare Workers, providing intelligent icon discovery through advanced semantic matching algorithms.",
 	"main": "src/index.ts",
 	"repository": {
