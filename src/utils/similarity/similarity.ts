@@ -1,4 +1,5 @@
 import { TextProcessor } from '../text/text-processor';
+import { SemanticVectors } from './semantic-vectors';
 
 /**
  * Similarity engine
@@ -56,8 +57,8 @@ export class SimilarityEngine {
 		const union3 = new Set([...ngrams1_3, ...ngrams2_3]);
 
 		// Calculate weighted average of similarities
-		const sim2 = intersection2.size / union2.size;
-		const sim3 = intersection3.size / union3.size;
+		const sim2 = union2.size > 0 ? intersection2.size / union2.size : 0;
+		const sim3 = union3.size > 0 ? intersection3.size / union3.size : 0;
 
 		return sim2 * 0.4 + sim3 * 0.6;
 	}
@@ -92,6 +93,11 @@ export class SimilarityEngine {
 			return 0;
 		}
 
+		// Check for exact match
+		if (str1.toLowerCase() === str2.toLowerCase()) {
+			return 1.0;
+		}
+
 		const words1 = TextProcessor.splitIntoWords(str1);
 		const words2 = TextProcessor.splitIntoWords(str2);
 
@@ -108,6 +114,7 @@ export class SimilarityEngine {
 		let magnitude1 = 0;
 		let magnitude2 = 0;
 
+		// Enhanced word matching with semantic similarity
 		for (const word1 of freqMap1.keys()) {
 			const freq1 = freqMap1.get(word1) || 0;
 			magnitude1 += freq1 * freq1;
@@ -115,13 +122,33 @@ export class SimilarityEngine {
 			// Find best matching word in str2
 			let bestMatch = 0;
 			for (const word2 of freqMap2.keys()) {
+				// Calculate multiple similarity metrics
 				const editSimilarity = this.calculateNormalizedEditDistance(word1, word2);
 				const ngramSimilarity = this.calculateNGramSimilarity(word1, word2);
-				const similarity = Math.max(editSimilarity, ngramSimilarity);
+				const semanticSimilarity = SemanticVectors.calculateSemanticSimilarity(word1, word2);
 
-				if (similarity > 0.4) {
+				// Weighted combination of similarity metrics
+				const similarity = editSimilarity * 0.3 + ngramSimilarity * 0.3 + semanticSimilarity * 0.4;
+
+				// Improved threshold for matching
+				if (similarity > 0.35) {
 					const freq2 = freqMap2.get(word2) || 0;
-					const matchBonus = word1 === word2 ? 1.2 : 1.0; // Boost exact matches
+					// Enhanced matching bonus with progressive scaling
+					let matchBonus = 1.0;
+
+					// Exact word match gets highest boost
+					if (word1 === word2) {
+						matchBonus = 1.5;
+					}
+					// Partial match gets medium boost
+					else if (word1.includes(word2) || word2.includes(word1)) {
+						matchBonus = 1.3;
+					}
+					// Semantic match gets small boost
+					else if (semanticSimilarity > 0.5) {
+						matchBonus = 1.2;
+					}
+
 					bestMatch = Math.max(bestMatch, freq1 * freq2 * similarity * matchBonus);
 				}
 			}
@@ -137,8 +164,12 @@ export class SimilarityEngine {
 			return 0;
 		}
 
+		// Apply length normalization to reduce bias towards longer strings
+		const lengthRatio = Math.min(words1.length, words2.length) / Math.max(words1.length, words2.length);
+		const lengthBoost = 0.8 + 0.2 * lengthRatio; // Length similarity factor
+
 		const similarity = dotProduct / (Math.sqrt(magnitude1) * Math.sqrt(magnitude2));
-		return Math.min(1, similarity * 1.2); // Boost similarity slightly
+		return Math.min(1, similarity * lengthBoost * 1.25); // Apply length normalization and boost
 	}
 
 	/**
@@ -189,37 +220,44 @@ export class SimilarityEngine {
 			return 1;
 		}
 
-		// Calculate Levenshtein distance
+		// Optimization: Use dynamic programming for edit distance calculation
 		const len1 = str1.length;
 		const len2 = str2.length;
-		const matrix: number[][] = Array(len1 + 1)
-			.fill(null)
-			.map(() => Array(len2 + 1).fill(0));
 
-		// Initialize first row and column
-		for (let i = 0; i <= len1; i++) {
-			matrix[i][0] = i;
+		// Early termination for very different length strings
+		if (Math.abs(len1 - len2) > Math.min(len1, len2) * 0.5) {
+			return 0;
 		}
 
+		// Initialize matrix with only two rows to save memory
+		let prevRow = Array(len2 + 1).fill(0);
+		let currRow = Array(len2 + 1).fill(0);
+
+		// Initialize first row
 		for (let j = 0; j <= len2; j++) {
-			matrix[0][j] = j;
+			prevRow[j] = j;
 		}
 
 		// Fill the matrix
 		for (let i = 1; i <= len1; i++) {
+			currRow[0] = i;
+
 			for (let j = 1; j <= len2; j++) {
 				const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-				matrix[i][j] = Math.min(
-					matrix[i - 1][j] + 1, // deletion
-					matrix[i][j - 1] + 1, // insertion
-					matrix[i - 1][j - 1] + cost // substitution
+				currRow[j] = Math.min(
+					prevRow[j] + 1, // deletion
+					currRow[j - 1] + 1, // insertion
+					prevRow[j - 1] + cost // substitution
 				);
 			}
+
+			// Swap rows
+			[prevRow, currRow] = [currRow, prevRow];
 		}
 
-		// Normalize the distance
+		// Normalize the distance (prevRow contains the final results after the swap)
 		const maxLen = Math.max(len1, len2);
-		return maxLen === 0 ? 1 : 1 - matrix[len1][len2] / maxLen;
+		return maxLen === 0 ? 1 : 1 - prevRow[len2] / maxLen;
 	}
 
 	/**
@@ -251,16 +289,15 @@ export class SimilarityEngine {
 			}
 		}
 
-		// Use a more lenient normalization factor
-		const normalizationFactor = Math.max(words1.length, words2.length);
-		return matchCount / normalizationFactor;
+		return matchCount / Math.max(words1.length, words2.length);
 	}
 
 	/**
-	 * Calculates a comprehensive similarity score combining multiple metrics
+	 * Calculates comprehensive similarity between two strings
+	 * Combines multiple similarity measures for better results
 	 * @param str1 - First string
 	 * @param str2 - Second string
-	 * @returns Combined similarity score between 0 and 1
+	 * @returns Similarity score between 0 and 1
 	 */
 	static calculateComprehensiveSimilarity(str1: string, str2: string): number {
 		if (!str1 || !str2) {
@@ -271,32 +308,25 @@ export class SimilarityEngine {
 			return 1;
 		}
 
-		// Calculate individual similarity scores
+		// Calculate different similarity measures
 		const cosineSim = this.calculateCosineSimilarity(str1, str2);
-		const jaccardSim = this.calculateJaccardSimilarity(str1, str2);
+		const editSim = this.calculateNormalizedEditDistance(str1, str2);
 		const ngramSim = this.calculateNGramSimilarity(str1, str2);
-		const overlapSim = this.calculateWordOverlapSimilarity(str1, str2);
+		const jaccardSim = this.calculateJaccardSimilarity(str1, str2);
+		const semanticSim = SemanticVectors.calculateSemanticSimilarity(str1, str2);
 
-		// Calculate prefix bonus
-		const prefixLength = this.commonPrefixLength(TextProcessor.normalizeInput(str1), TextProcessor.normalizeInput(str2));
-		const prefixBonus = prefixLength > 0 ? prefixLength / Math.max(str1.length, str2.length) : 0;
+		// Weighted average of similarities
+		return cosineSim * 0.25 + editSim * 0.15 + ngramSim * 0.15 + jaccardSim * 0.15 + semanticSim * 0.3;
+	}
 
-		// Calculate exact word match bonus
-		const words1 = new Set(TextProcessor.splitIntoWords(str1));
-		const words2 = new Set(TextProcessor.splitIntoWords(str2));
-		const exactMatches = [...words1].filter((w) => words2.has(w)).length;
-		const exactMatchBonus = exactMatches > 0 ? exactMatches / Math.max(words1.size, words2.size) : 0;
+	/**
+	 * Enriches a query with semantic information
+	 * @param query - Original query
+	 * @returns Enriched query with semantic information
+	 */
+	static enrichQuery(query: string): string {
+		if (!query) return '';
 
-		// Weighted combination of scores
-		const combinedScore =
-			cosineSim * 0.3 + jaccardSim * 0.2 + ngramSim * 0.2 + overlapSim * 0.1 + prefixBonus * 0.1 + exactMatchBonus * 0.1;
-
-		// Apply length penalty for very short matches
-		const shortestLength = Math.min(str1.length, str2.length);
-		const lengthPenalty = shortestLength < 3 ? 0.5 : 1;
-
-		// Boost score for very similar strings
-		const finalScore = combinedScore * lengthPenalty;
-		return Math.min(1, finalScore * 1.2); // Apply final boost with cap at 1.0
+		return SemanticVectors.enrichText(query);
 	}
 }

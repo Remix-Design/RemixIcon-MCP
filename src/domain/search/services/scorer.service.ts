@@ -133,7 +133,63 @@ export class ScorerService implements IScorer {
 		if (!description || !category) {
 			return 0;
 		}
-		return SimilarityEngine.calculateComprehensiveSimilarity(description, category);
+
+		// Split description and category into words
+		const descWords = description.toLowerCase().split(/\s+/);
+		const categoryWords = category.toLowerCase().split(/[-_\s]+/);
+
+		// Check for exact category match
+		if (description.toLowerCase() === category.toLowerCase()) {
+			return 1.0; // Perfect match
+		}
+
+		// Check if category is fully contained in description
+		if (description.toLowerCase().includes(category.toLowerCase())) {
+			return 0.95; // Very strong match - increased from 0.9
+		}
+
+		// Check if description is fully contained in category
+		if (category.toLowerCase().includes(description.toLowerCase())) {
+			return 0.85; // Strong match - increased from 0.8
+		}
+
+		// Special handling for specific categories
+		const categoryLower = category.toLowerCase();
+		if (
+			categoryLower === 'communication' &&
+			(description.toLowerCase().includes('message') ||
+				description.toLowerCase().includes('chat') ||
+				description.toLowerCase().includes('mail') ||
+				description.toLowerCase().includes('talk'))
+		) {
+			return 0.9; // Strong match for communication-related terms
+		}
+
+		if (
+			categoryLower === 'media' &&
+			(description.toLowerCase().includes('play') ||
+				description.toLowerCase().includes('video') ||
+				description.toLowerCase().includes('audio') ||
+				description.toLowerCase().includes('music'))
+		) {
+			return 0.9; // Strong match for media-related terms
+		}
+
+		// Check for word-level matches with improved scoring
+		const wordMatches = categoryWords.filter((catWord) =>
+			descWords.some((descWord) => descWord === catWord || descWord.includes(catWord) || catWord.includes(descWord))
+		);
+
+		if (wordMatches.length > 0) {
+			// Calculate match ratio (how many category words match)
+			const matchRatio = wordMatches.length / categoryWords.length;
+			// Apply progressive boost based on match ratio - increased boost factor
+			return Math.min(0.8, 0.45 + matchRatio * 0.6); // Increased from 0.75, 0.4, 0.5
+		}
+
+		// Fall back to comprehensive similarity with a boost
+		const baseSimilarity = SimilarityEngine.calculateComprehensiveSimilarity(description, category);
+		return baseSimilarity * 1.3; // Increased boost from 1.2
 	}
 
 	/**
@@ -148,19 +204,49 @@ export class ScorerService implements IScorer {
 			return 0;
 		}
 
-		// Calculate similarity for each tag
+		// Split description into words for better matching
+		const descWords = description.toLowerCase().split(/\s+/);
+
+		// Calculate similarity for each tag with enhanced matching
 		const tagScores = tags.map((tag) => {
-			const similarity = SimilarityEngine.calculateComprehensiveSimilarity(description, tag);
-			// Boost exact matches and partial matches
-			if (description.toLowerCase().includes(tag.toLowerCase())) {
-				return similarity * 1.5;
+			// Base similarity using comprehensive similarity
+			const baseSimilarity = SimilarityEngine.calculateComprehensiveSimilarity(description, tag);
+
+			// Check for exact matches in the description
+			if (description.toLowerCase() === tag.toLowerCase()) {
+				return Math.min(1.0, baseSimilarity * 2.5); // Significant boost for exact matches
 			}
-			return similarity;
+
+			// Check for inclusion in the description
+			if (description.toLowerCase().includes(tag.toLowerCase())) {
+				return Math.min(1.0, baseSimilarity * 1.8); // Strong boost for inclusion
+			}
+
+			// Check for word-level matches
+			const tagWords = tag.toLowerCase().split(/[-_\s]+/);
+			const wordMatches = tagWords.filter((tagWord) =>
+				descWords.some((descWord) => descWord.includes(tagWord) || tagWord.includes(descWord))
+			);
+
+			if (wordMatches.length > 0) {
+				// Apply progressive boost based on number of matching words
+				const wordMatchBoost = 1.2 + 0.15 * wordMatches.length;
+				return Math.min(1.0, baseSimilarity * wordMatchBoost);
+			}
+
+			return baseSimilarity;
 		});
 
-		// Get the top 3 most relevant tag scores
-		const topScores = tagScores.sort((a, b) => b - a).slice(0, 3);
-		return topScores.length > 0 ? topScores.reduce((a, b) => a + b) / topScores.length : 0;
+		// Get the top 3 most relevant tag scores with higher weight for best matches
+		const sortedScores = tagScores.sort((a, b) => b - a);
+		const topScores = sortedScores.slice(0, 3);
+
+		if (topScores.length === 0) return 0;
+
+		// Apply weighted average with higher weight for best matches
+		if (topScores.length === 1) return topScores[0];
+		if (topScores.length === 2) return topScores[0] * 0.7 + topScores[1] * 0.3;
+		return topScores[0] * 0.6 + topScores[1] * 0.25 + topScores[2] * 0.15;
 	}
 
 	/**

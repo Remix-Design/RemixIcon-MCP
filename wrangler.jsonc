@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "mcp-server-remix-icon",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-02-24",
+	"compatibility_date": "2025-02-04",
 	"observability": {
 		"enabled": true
 	},

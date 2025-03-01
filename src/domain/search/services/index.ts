@@ -4,6 +4,7 @@
  */
 
 export * from './cache.service';
+export * from './inverted-index.service';
 export * from './query.service';
 export * from './scorer.service';
 export * from './search.service';
