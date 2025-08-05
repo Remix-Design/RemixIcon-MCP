@@ -9,6 +9,7 @@ import { SmartCacheService } from './infrastructure/cache/smart-cache.service';
 import { PredictiveCacheService } from './infrastructure/cache/predictive-cache.service';
 import { ConfigManager } from './infrastructure/config/config-manager';
 import { TelemetryService, DashboardService, CorrelationTracker } from './infrastructure/observability';
+import { SemanticSearchService, IntentClassifierService, AIEnhancedSearchService } from './infrastructure/ai';
 import { TextProcessor } from './utils/text/text-processor';
 import iconCatalog from './data/icon-catalog.json';
 
@@ -27,6 +28,9 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	private telemetryService: TelemetryService;
 	private dashboardService: DashboardService;
 	private correlationTracker: CorrelationTracker;
+	private semanticSearchService: SemanticSearchService;
+	private intentClassifierService: IntentClassifierService;
+	private aiEnhancedSearchService: AIEnhancedSearchService;
 
 	constructor(ctx: ExecutionContext, env: Env) {
 		super(ctx, env);
@@ -88,6 +92,34 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			}
 		);
 		
+		// Initialize AI services if enabled
+		const isAIEnabled = env.AI_ENABLED === 'true';
+		if (isAIEnabled && env.AI) {
+			this.semanticSearchService = new SemanticSearchService(
+				this.logger,
+				env.AI,
+				this.telemetryService,
+				{
+					embeddingModel: '@cf/baai/bge-base-en-v1.5',
+					embeddingDimensions: 768,
+					similarityThreshold: 0.7,
+					enableIntentClassification: env.INTENT_CLASSIFICATION_ENABLED === 'true'
+				}
+			);
+			
+			this.intentClassifierService = new IntentClassifierService(
+				this.logger,
+				env.AI,
+				this.telemetryService,
+				{
+					enableMLClassification: true,
+					enableSentimentAnalysis: true,
+					enableEntityExtraction: true,
+					confidenceThreshold: 0.6
+				}
+			);
+		}
+		
 		// Create search services
 		this.searchService = createUnifiedSearchService(
 			this.kvStorage,
@@ -114,6 +146,25 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		
 		// Connect tiered search to unified search
 		this.searchService.setTieredSearchService(this.tieredSearchService);
+		
+		// Initialize AI-enhanced search if AI services are available
+		if (isAIEnabled && env.AI && this.semanticSearchService && this.intentClassifierService) {
+			this.aiEnhancedSearchService = new AIEnhancedSearchService(
+				this.logger,
+				this.searchService,
+				this.semanticSearchService,
+				this.intentClassifierService,
+				this.telemetryService,
+				{
+					enableSemanticSearch: env.SEMANTIC_SEARCH_ENABLED === 'true',
+					enableIntentClassification: env.INTENT_CLASSIFICATION_ENABLED === 'true',
+					enableHybridScoring: true,
+					adaptiveWeighting: true,
+					defaultStrategy: 'balanced',
+					maxResults: config.performance.resultLimit || 10
+				}
+			);
+		}
 	}
 
 	/**
@@ -129,11 +180,22 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			this.searchService.buildIndex(icons);
 			this.tieredSearchService.buildIndex(icons);
 			
+			// Initialize AI services if available
+			if (this.semanticSearchService) {
+				await this.semanticSearchService.initialize(icons);
+			}
+			
+			if (this.aiEnhancedSearchService) {
+				await this.aiEnhancedSearchService.initialize(icons);
+			}
+			
 			const source = kvResult.success ? 'KV storage' : 'JSON fallback';
 			this.logger.info('Search indexes built successfully', { 
 				source, 
 				count: icons.length,
-				tieredSearchEnabled: true
+				tieredSearchEnabled: true,
+				aiEnabled: !!this.aiEnhancedSearchService,
+				semanticSearchEnabled: !!this.semanticSearchService
 			});
 		} catch (error) {
 			// Ultimate fallback to JSON
@@ -148,7 +210,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	 * @param {string} description - The user's description to search for icons
 	 * @returns {ResponseContent[]} Array of matching icons
 	 */
-	async findIcons(description: string, userId?: string, sessionId?: string): Promise<ResponseContent[]> {
+	async findIcons(description: string, userId?: string, sessionId?: string, useAI?: boolean): Promise<ResponseContent[]> {
 		await this.initializeIndex();
 		
 		// Try smart cache first
@@ -157,7 +219,39 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			return cachedResults;
 		}
 		
-		// Execute search
+		// Use AI-enhanced search if available and requested
+		if (useAI !== false && this.aiEnhancedSearchService) {
+			try {
+				const catalogResult = await this.kvStorage.getIconCatalog();
+				const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
+				
+				const aiResults = await this.aiEnhancedSearchService.search(
+					description, 
+					icons, 
+					userId, 
+					sessionId
+				);
+				
+				// Convert AI results to ResponseContent format
+				const responseResults = aiResults.map(result => ({
+					type: 'text' as const,
+					text: `${result.icon.name} (AI Score: ${(result.scores.combined * 100).toFixed(0)}%, ` +
+						  `Match: ${result.matchTypes.join('+')}, Category: ${result.icon.category})`
+				}));
+				
+				// Cache AI results
+				if (responseResults.length > 0) {
+					await this.smartCacheService.set(description, responseResults);
+				}
+				
+				return responseResults;
+				
+			} catch (error) {
+				this.logger.warn('AI search failed, falling back to traditional search', { error: error.message });
+			}
+		}
+		
+		// Fallback to traditional search
 		const resultLimit = this.configManager.getPerformanceConfig().resultLimit;
 		const results = await this.searchService.findIcons(description, resultLimit);
 		
@@ -316,6 +410,129 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	 */
 	async clearSmartCache(pattern?: string): Promise<void> {
 		await this.smartCacheService.clear(pattern);
+	}
+
+	/**
+	 * Perform semantic search with AI embeddings
+	 * @param {string} query - The search query
+	 * @param {string} userId - Optional user ID for personalization
+	 * @param {string} sessionId - Optional session ID
+	 * @returns {object} Semantic search results with similarity scores
+	 */
+	async performSemanticSearch(query: string, userId?: string, sessionId?: string): Promise<object[]> {
+		if (!this.semanticSearchService) {
+			throw new Error('Semantic search not available - AI services not enabled');
+		}
+
+		await this.initializeIndex();
+		
+		const catalogResult = await this.kvStorage.getIconCatalog();
+		const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
+		
+		const results = await this.semanticSearchService.semanticSearch(query, icons, 10);
+		
+		return results.map(result => ({
+			icon: result.icon,
+			semanticScore: result.semanticScore,
+			explanation: result.explanation,
+			matchType: result.matchType
+		}));
+	}
+
+	/**
+	 * Classify user intent from query
+	 * @param {string} query - The query to classify
+	 * @param {string} userId - Optional user ID for context
+	 * @param {string} sessionId - Optional session ID
+	 * @returns {object} Intent classification result
+	 */
+	async classifyIntent(query: string, userId?: string, sessionId?: string): Promise<object> {
+		if (!this.intentClassifierService) {
+			throw new Error('Intent classification not available - AI services not enabled');
+		}
+
+		return await this.intentClassifierService.classifyIntent(query, userId, sessionId);
+	}
+
+	/**
+	 * Get AI search recommendations for user
+	 * @param {string} userId - User ID for personalization
+	 * @param {string} sessionId - Optional session ID
+	 * @returns {object} Personalized search recommendations
+	 */
+	async getAIRecommendations(userId: string, sessionId?: string): Promise<object> {
+		if (!this.aiEnhancedSearchService) {
+			throw new Error('AI recommendations not available - AI services not enabled');
+		}
+
+		return await this.aiEnhancedSearchService.getRecommendations(userId, sessionId);
+	}
+
+	/**
+	 * Analyze search quality with AI insights
+	 * @param {string} query - The original query
+	 * @param {object} userFeedback - Optional user feedback
+	 * @returns {object} Search quality analysis
+	 */
+	async analyzeSearchQuality(
+		query: string, 
+		userFeedback?: { satisfied: boolean; selectedIcons: string[]; rejectedSuggestions: string[] }
+	): Promise<object> {
+		if (!this.aiEnhancedSearchService) {
+			throw new Error('Search quality analysis not available - AI services not enabled');
+		}
+
+		// Get AI results for analysis
+		const catalogResult = await this.kvStorage.getIconCatalog();
+		const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
+		const results = await this.aiEnhancedSearchService.search(query, icons);
+		
+		return await this.aiEnhancedSearchService.analyzeSearchQuality(query, results, userFeedback);
+	}
+
+	/**
+	 * Get comprehensive AI analytics
+	 * @returns {object} AI service analytics and performance metrics
+	 */
+	async getAIAnalytics(): Promise<object> {
+		const analytics: any = {
+			aiEnabled: !!this.aiEnhancedSearchService,
+			semanticSearchEnabled: !!this.semanticSearchService,
+			intentClassificationEnabled: !!this.intentClassifierService
+		};
+
+		if (this.semanticSearchService) {
+			analytics.semanticSearch = this.semanticSearchService.getAnalytics();
+		}
+
+		if (this.intentClassifierService) {
+			analytics.intentClassification = this.intentClassifierService.getAnalytics();
+		}
+
+		if (this.aiEnhancedSearchService) {
+			analytics.aiEnhancedSearch = this.aiEnhancedSearchService.getAnalytics();
+		}
+
+		return analytics;
+	}
+
+	/**
+	 * Clear all AI service data
+	 */
+	async clearAIData(): Promise<void> {
+		if (this.semanticSearchService) {
+			this.semanticSearchService.clear();
+		}
+
+		if (this.intentClassifierService) {
+			this.intentClassifierService.clear();
+		}
+
+		if (this.aiEnhancedSearchService) {
+			this.aiEnhancedSearchService.clear();
+		}
+
+		this.logger.info('AI service data cleared');
 	}
 
 	/**

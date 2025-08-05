@@ -23,10 +23,16 @@
 			"dataset": "remix_icon_analytics"
 		}
 	],
+	"ai": {
+		"binding": "AI"
+	},
 	"vars": {
 		"TELEMETRY_ENABLED": "true",
 		"DASHBOARD_ENABLED": "true",
-		"LOG_LEVEL": "INFO"
+		"LOG_LEVEL": "INFO",
+		"AI_ENABLED": "true",
+		"SEMANTIC_SEARCH_ENABLED": "true",
+		"INTENT_CLASSIFICATION_ENABLED": "true"
 	}
   /**
    * Smart Placement

@@ -124,6 +124,7 @@ All search behavior is controlled by `DEFAULT_SEARCH_CONFIG`:
 2. **Incremental Indexing**: N-gram pre-computation with versioning and delta updates
 3. **Advanced Observability**: Comprehensive metrics, tracing, and real-time dashboards
 4. **Smart Caching System**: ML-driven predictive caching with query pattern analysis
+5. **AI-Enhanced Search**: Cloudflare Workers AI integration with semantic embeddings and intent classification
 
 ### Architecture Benefits
 - **Memory Usage**: Reduced from ~1.1MB JSON loading to streaming batches
@@ -198,3 +199,40 @@ All search behavior is controlled by `DEFAULT_SEARCH_CONFIG`:
 - **Hybrid Approach**: Combined reactive and predictive strategies for optimal performance
 - **Priority Queuing**: Smart warming queue management with probability-based prioritization
 - **Success Tracking**: Warming effectiveness monitoring and adaptive threshold adjustment
+
+## AI-Enhanced Search System
+
+### Semantic Search Service
+- **Vector Embeddings**: Cloudflare Workers AI integration with BGE-base-en-v1.5 model
+- **Cosine Similarity**: Advanced similarity scoring for semantic understanding
+- **Embedding Cache**: LRU cache with intelligent eviction for embedding optimization
+- **Batch Processing**: Efficient embedding generation with rate limit handling
+- **Semantic Vectors**: 768-dimensional embeddings with metadata and context
+
+### Intent Classification Service
+- **Multi-Modal Classification**: Rule-based and ML-powered intent recognition
+- **Context Analysis**: Query complexity, user experience, and urgency assessment
+- **Entity Extraction**: Automatic identification of categories, actions, and objects
+- **Sentiment Analysis**: User sentiment detection for personalized responses
+- **Session Tracking**: User behavior patterns and query sequence analysis
+
+### AI-Enhanced Search Engine
+- **Hybrid Scoring**: Combined traditional, semantic, and intent-based scoring
+- **Adaptive Strategies**: Multiple search strategies (balanced, semantic-focused, intent-driven)
+- **Smart Weighting**: Dynamic weight adjustment based on query characteristics
+- **Quality Analysis**: Real-time search quality assessment with improvement suggestions
+- **Personalization**: User-specific recommendations and contextual search enhancement
+
+### Advanced AI Features
+- **Search Strategies**: 5 intelligent strategies for different use cases and user types
+- **Performance Analytics**: Comprehensive AI contribution metrics and success tracking
+- **Fallback Mechanisms**: Graceful degradation when AI services are unavailable
+- **Confidence Scoring**: Multi-level confidence assessment for result reliability
+- **Explanation Generation**: Human-readable explanations for AI-driven results
+
+### AI Model Integration
+- **Embedding Model**: `@cf/baai/bge-base-en-v1.5` for semantic vector generation
+- **Classification Model**: `@cf/huggingface/distilbert-sst-2-int8` for sentiment analysis
+- **Workers AI Binding**: Native Cloudflare Workers AI integration with automatic scaling
+- **Model Caching**: Intelligent caching of embeddings and classification results
+- **Error Handling**: Robust error handling with traditional search fallbacks
