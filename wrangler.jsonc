@@ -23,16 +23,29 @@
 			"dataset": "remix_icon_analytics"
 		}
 	],
-	"ai": {
-		"binding": "AI"
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "REGION_COORDINATOR",
+				"class_name": "RegionCoordinatorDO"
+			}
+		]
 	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_classes": [
+				"RegionCoordinatorDO"
+			]
+		}
+	],
 	"vars": {
 		"TELEMETRY_ENABLED": "true",
 		"DASHBOARD_ENABLED": "true",
 		"LOG_LEVEL": "INFO",
-		"AI_ENABLED": "true",
-		"SEMANTIC_SEARCH_ENABLED": "true",
-		"INTENT_CLASSIFICATION_ENABLED": "true"
+		"AI_ENABLED": "false",
+		"SEMANTIC_SEARCH_ENABLED": "false",
+		"INTENT_CLASSIFICATION_ENABLED": "false"
 	}
   /**
    * Smart Placement

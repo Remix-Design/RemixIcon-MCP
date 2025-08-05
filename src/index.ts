@@ -10,6 +10,7 @@ import { PredictiveCacheService } from './infrastructure/cache/predictive-cache.
 import { ConfigManager } from './infrastructure/config/config-manager';
 import { TelemetryService, DashboardService, CorrelationTracker } from './infrastructure/observability';
 import { SemanticSearchService, IntentClassifierService, AIEnhancedSearchService } from './infrastructure/ai';
+import { RegionCoordinatorService } from './infrastructure/distributed/region-coordinator.service';
 import { TextProcessor } from './utils/text/text-processor';
 import iconCatalog from './data/icon-catalog.json';
 
@@ -31,6 +32,7 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	private semanticSearchService: SemanticSearchService;
 	private intentClassifierService: IntentClassifierService;
 	private aiEnhancedSearchService: AIEnhancedSearchService;
+	private regionCoordinator: RegionCoordinatorService;
 
 	constructor(ctx: ExecutionContext, env: Env) {
 		super(ctx, env);
@@ -165,6 +167,19 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 				}
 			);
 		}
+		
+		// Initialize multi-region coordination
+		this.regionCoordinator = new RegionCoordinatorService(
+			this.logger,
+			env,
+			this.telemetryService,
+			{
+				regionId: env.CF_REGION || 'auto',
+				regionName: env.REGION_NAME || `Region-${env.CF_REGION || 'auto'}`,
+				location: env.CF_COLO || 'unknown',
+				capabilities: ['search', 'cache', 'ai', 'analytics']
+			}
+		);
 	}
 
 	/**
@@ -189,13 +204,19 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 				await this.aiEnhancedSearchService.initialize(icons);
 			}
 			
+			// Initialize region coordination
+			if (this.regionCoordinator) {
+				await this.regionCoordinator.initialize();
+			}
+			
 			const source = kvResult.success ? 'KV storage' : 'JSON fallback';
 			this.logger.info('Search indexes built successfully', { 
 				source, 
 				count: icons.length,
 				tieredSearchEnabled: true,
 				aiEnabled: !!this.aiEnhancedSearchService,
-				semanticSearchEnabled: !!this.semanticSearchService
+				semanticSearchEnabled: !!this.semanticSearchService,
+				multiRegionEnabled: !!this.regionCoordinator
 			});
 		} catch (error) {
 			// Ultimate fallback to JSON
@@ -533,6 +554,66 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		}
 
 		this.logger.info('AI service data cleared');
+	}
+
+	/**
+	 * Get multi-region coordination status
+	 * @returns {object} Region coordination status and metrics
+	 */
+	async getRegionStatus(): Promise<object> {
+		if (!this.regionCoordinator) {
+			return { enabled: false, message: 'Multi-region coordination not enabled' };
+		}
+
+		return await this.regionCoordinator.getCoordinationState();
+	}
+
+	/**
+	 * Route request to optimal region
+	 * @param {string} clientLocation - Optional client location hint
+	 * @param {object} requirements - Optional requirements for region selection
+	 * @returns {object} Optimal region information or null
+	 */
+	async routeToOptimalRegion(
+		clientLocation?: string,
+		requirements?: { capabilities?: string[]; maxLatency?: number }
+	): Promise<object | null> {
+		if (!this.regionCoordinator) {
+			return null;
+		}
+
+		return await this.regionCoordinator.routeRequest(clientLocation, requirements);
+	}
+
+	/**
+	 * Synchronize data across regions
+	 * @param {string} operation - The operation to synchronize
+	 * @param {any} data - The data to synchronize
+	 * @param {string[]} targetRegions - Optional specific target regions
+	 * @returns {object} Synchronization results
+	 */
+	async syncAcrossRegions(
+		operation: string,
+		data: any,
+		targetRegions?: string[]
+	): Promise<object> {
+		if (!this.regionCoordinator) {
+			return { success: false, error: 'Multi-region coordination not enabled' };
+		}
+
+		return await this.regionCoordinator.syncData(operation, data, targetRegions);
+	}
+
+	/**
+	 * Update current region health metrics
+	 * @param {number} load - Current load (0-1)
+	 * @param {number} latency - Current latency in ms
+	 * @param {object} metadata - Optional additional metadata
+	 */
+	updateRegionHealth(load: number, latency: number, metadata?: Record<string, any>): void {
+		if (this.regionCoordinator) {
+			this.regionCoordinator.updateHealthMetrics(load, latency, metadata);
+		}
 	}
 
 	/**
