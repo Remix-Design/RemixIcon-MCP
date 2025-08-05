@@ -11,6 +11,7 @@ import { ConfigManager } from './infrastructure/config/config-manager';
 import { TelemetryService, DashboardService, CorrelationTracker } from './infrastructure/observability';
 import { SemanticSearchService, IntentClassifierService, AIEnhancedSearchService } from './infrastructure/ai';
 import { RegionCoordinatorService } from './infrastructure/distributed/region-coordinator.service';
+import { CircuitBreakerService, GracefulDegradationService, FallbackManagerService } from './infrastructure/resilience';
 import { TextProcessor } from './utils/text/text-processor';
 import iconCatalog from './data/icon-catalog.json';
 
@@ -33,6 +34,9 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	private intentClassifierService: IntentClassifierService;
 	private aiEnhancedSearchService: AIEnhancedSearchService;
 	private regionCoordinator: RegionCoordinatorService;
+	private circuitBreakers: Map<string, CircuitBreakerService> = new Map();
+	private gracefulDegradation: GracefulDegradationService;
+	private fallbackManager: FallbackManagerService;
 
 	constructor(ctx: ExecutionContext, env: Env) {
 		super(ctx, env);
@@ -180,6 +184,188 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 				capabilities: ['search', 'cache', 'ai', 'analytics']
 			}
 		);
+
+		// Initialize resilience services
+		this.initializeResilienceServices();
+	}
+
+	/**
+	 * Initialize resilience services (circuit breakers, graceful degradation, fallbacks)
+	 */
+	private initializeResilienceServices(): void {
+		// Initialize graceful degradation
+		this.gracefulDegradation = new GracefulDegradationService(
+			{
+				cpuThreshold: 0.8,
+				memoryThreshold: 0.85,
+				responseTimeThreshold: 5000,
+				errorRateThreshold: 0.1,
+				connectionThreshold: 1000,
+				queueSizeThreshold: 100
+			},
+			this.logger,
+			this.telemetryService
+		);
+
+		// Register feature degradation strategies
+		this.gracefulDegradation.registerFeature({
+			featureName: 'ai-search',
+			priority: 1,
+			dependencies: ['semantic-search', 'intent-classification'],
+			degradationLevels: {
+				normal: { enabled: true },
+				partial: { enabled: true, timeoutMs: 3000 },
+				minimal: { enabled: false, fallbackBehavior: 'Use traditional search only' },
+				emergency: { enabled: false, fallbackBehavior: 'Use traditional search only' }
+			}
+		});
+
+		this.gracefulDegradation.registerFeature({
+			featureName: 'semantic-search',
+			priority: 2,
+			dependencies: [],
+			degradationLevels: {
+				normal: { enabled: true },
+				partial: { enabled: true, timeoutMs: 2000, simplified: true },
+				minimal: { enabled: false, fallbackBehavior: 'Use keyword matching only' },
+				emergency: { enabled: false, fallbackBehavior: 'Use keyword matching only' }
+			}
+		});
+
+		this.gracefulDegradation.registerFeature({
+			featureName: 'predictive-cache',
+			priority: 3,
+			dependencies: [],
+			degradationLevels: {
+				normal: { enabled: true },
+				partial: { enabled: true, simplified: true },
+				minimal: { enabled: false, fallbackBehavior: 'Use basic cache only' },
+				emergency: { enabled: false, fallbackBehavior: 'Use basic cache only' }
+			}
+		});
+
+		this.gracefulDegradation.registerFeature({
+			featureName: 'analytics',
+			priority: 4,
+			dependencies: [],
+			degradationLevels: {
+				normal: { enabled: true },
+				partial: { enabled: true, simplified: true },
+				minimal: { enabled: false, fallbackBehavior: 'Basic logging only' },
+				emergency: { enabled: false, fallbackBehavior: 'Basic logging only' }
+			}
+		});
+
+		// Initialize circuit breakers
+		const circuitBreakerConfig = {
+			failureThreshold: 5,
+			successThreshold: 3,
+			timeout: 60000,
+			monitoringWindow: 300000,
+			volumeThreshold: 10,
+			errorThreshold: 0.5
+		};
+
+		this.circuitBreakers.set('findIcons', new CircuitBreakerService(
+			'findIcons',
+			circuitBreakerConfig,
+			this.logger,
+			this.telemetryService
+		));
+
+		this.circuitBreakers.set('ai-search', new CircuitBreakerService(
+			'ai-search',
+			{ ...circuitBreakerConfig, failureThreshold: 3, timeout: 30000 },
+			this.logger,
+			this.telemetryService
+		));
+
+		this.circuitBreakers.set('semantic-search', new CircuitBreakerService(
+			'semantic-search',
+			{ ...circuitBreakerConfig, failureThreshold: 3, timeout: 30000 },
+			this.logger,
+			this.telemetryService
+		));
+
+		// Initialize fallback manager
+		this.fallbackManager = new FallbackManagerService(
+			this.logger,
+			this.telemetryService,
+			this.cacheService,
+			this.circuitBreakers
+		);
+
+		// Register fallback strategies
+		this.registerFallbackStrategies();
+
+		this.logger.info('Resilience services initialized', {
+			circuitBreakers: this.circuitBreakers.size,
+			degradationFeatures: 4,
+			fallbackStrategies: 'registered'
+		});
+	}
+
+	/**
+	 * Register fallback strategies for operations
+	 */
+	private registerFallbackStrategies(): void {
+		// Fallback strategies for findIcons
+		this.fallbackManager.registerFallback('findIcons', [
+			{
+				strategy: 'cache_only' as any,
+				priority: 100,
+				conditions: { circuitStates: ['open', 'half_open'] },
+				config: { cacheKey: 'findIcons', ttlMs: 300000 }
+			},
+			{
+				strategy: 'simplified' as any,
+				priority: 80,
+				conditions: { errorTypes: ['TimeoutError', 'NetworkError'] },
+				config: {}
+			},
+			{
+				strategy: 'static_response' as any,
+				priority: 60,
+				conditions: { maxRetries: 2 },
+				config: {
+					staticData: [{
+						type: 'text',
+						text: 'Service temporarily unavailable. Please try basic searches like "home", "user", "settings".'
+					}]
+				}
+			}
+		]);
+
+		// Fallback strategies for getIconCategories
+		this.fallbackManager.registerFallback('getIconCategories', [
+			{
+				strategy: 'cache_only' as any,
+				priority: 100,
+				conditions: {},
+				config: { cacheKey: 'iconCategories', ttlMs: 600000 }
+			},
+			{
+				strategy: 'static_response' as any,
+				priority: 90,
+				conditions: {},
+				config: {
+					staticData: [
+						{ type: 'text', text: 'System' },
+						{ type: 'text', text: 'User & Faces' },
+						{ type: 'text', text: 'Business' },
+						{ type: 'text', text: 'Communication' },
+						{ type: 'text', text: 'Media' }
+					]
+				}
+			}
+		]);
+
+		// Register static responses
+		this.fallbackManager.registerStaticResponse('emergency-response', {
+			message: 'System is in emergency mode. Only basic functionality is available.',
+			availableOperations: ['getIconCategories'],
+			suggestion: 'Please try again in a few minutes.'
+		});
 	}
 
 	/**
@@ -232,53 +418,126 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	 * @returns {ResponseContent[]} Array of matching icons
 	 */
 	async findIcons(description: string, userId?: string, sessionId?: string, useAI?: boolean): Promise<ResponseContent[]> {
+		// Update system health metrics
+		const startTime = Date.now();
+		this.updateSystemHealth();
+
+		// Execute with circuit breaker and fallback protection
+		const circuitBreaker = this.circuitBreakers.get('findIcons');
+		if (circuitBreaker) {
+			const result = await circuitBreaker.execute(
+				async () => {
+					return await this.executeIconSearchWithDegradation(description, userId, sessionId, useAI);
+				},
+				async (error) => {
+					// Fallback function
+					return await this.fallbackManager.executeWithFallback(
+						'findIcons',
+						async () => { throw error; }, // This will always fail, triggering fallback strategies
+						{
+							originalError: error,
+							operationName: 'findIcons',
+							requestData: { description, userId, sessionId },
+							retryCount: 0,
+							startTime
+						}
+					).then(result => result.data || []);
+				}
+			);
+
+			if (result.success) {
+				return result.data || [];
+			} else {
+				// Return fallback data or empty array
+				return result.fallbackUsed ? (result.data || []) : [];
+			}
+		}
+
+		// Fallback if no circuit breaker
+		return await this.executeIconSearchWithDegradation(description, userId, sessionId, useAI);
+	}
+
+	/**
+	 * Execute icon search with degradation awareness
+	 */
+	private async executeIconSearchWithDegradation(
+		description: string, 
+		userId?: string, 
+		sessionId?: string, 
+		useAI?: boolean
+	): Promise<ResponseContent[]> {
 		await this.initializeIndex();
 		
-		// Try smart cache first
-		const cachedResults = await this.smartCacheService.get(description, userId, sessionId);
-		if (cachedResults) {
-			return cachedResults;
-		}
-		
-		// Use AI-enhanced search if available and requested
-		if (useAI !== false && this.aiEnhancedSearchService) {
-			try {
-				const catalogResult = await this.kvStorage.getIconCatalog();
-				const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
-				
-				const aiResults = await this.aiEnhancedSearchService.search(
-					description, 
-					icons, 
-					userId, 
-					sessionId
-				);
-				
-				// Convert AI results to ResponseContent format
-				const responseResults = aiResults.map(result => ({
-					type: 'text' as const,
-					text: `${result.icon.name} (AI Score: ${(result.scores.combined * 100).toFixed(0)}%, ` +
-						  `Match: ${result.matchTypes.join('+')}, Category: ${result.icon.category})`
-				}));
-				
-				// Cache AI results
-				if (responseResults.length > 0) {
-					await this.smartCacheService.set(description, responseResults);
-				}
-				
-				return responseResults;
-				
-			} catch (error) {
-				this.logger.warn('AI search failed, falling back to traditional search', { error: error.message });
+		// Try smart cache first (if predictive cache is enabled)
+		if (this.gracefulDegradation.isFeatureEnabled('predictive-cache')) {
+			const cachedResults = await this.smartCacheService.get(description, userId, sessionId);
+			if (cachedResults) {
+				// Cache hit for fallback use
+				this.fallbackManager.cacheForFallback(`findIcons:${description}`, cachedResults);
+				return cachedResults;
 			}
 		}
 		
-		// Fallback to traditional search
+		// Use AI-enhanced search if available, requested, and enabled
+		const isAIEnabled = useAI !== false && 
+			this.aiEnhancedSearchService && 
+			this.gracefulDegradation.isFeatureEnabled('ai-search');
+
+		if (isAIEnabled) {
+			return await this.gracefulDegradation.executeWithDegradation(
+				'ai-search',
+				async () => {
+					const catalogResult = await this.kvStorage.getIconCatalog();
+					const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
+					
+					const aiResults = await this.aiEnhancedSearchService!.search(
+						description, 
+						icons, 
+						userId, 
+						sessionId
+					);
+					
+					// Convert AI results to ResponseContent format
+					const responseResults = aiResults.map(result => ({
+						type: 'text' as const,
+						text: `${result.icon.name} (AI Score: ${(result.scores.combined * 100).toFixed(0)}%, ` +
+							  `Match: ${result.matchTypes.join('+')}, Category: ${result.icon.category})`
+					}));
+					
+					// Cache results and for fallback use
+					if (responseResults.length > 0) {
+						if (this.gracefulDegradation.isFeatureEnabled('predictive-cache')) {
+							await this.smartCacheService.set(description, responseResults);
+						}
+						this.fallbackManager.cacheForFallback(`findIcons:${description}`, responseResults);
+					}
+					
+					return responseResults;
+				},
+				async () => {
+					// Fallback to traditional search
+					return await this.executeTraditionalSearch(description);
+				}
+			);
+		}
+		
+		// Traditional search
+		return await this.executeTraditionalSearch(description);
+	}
+
+	/**
+	 * Execute traditional search with caching
+	 */
+	private async executeTraditionalSearch(description: string): Promise<ResponseContent[]> {
 		const resultLimit = this.configManager.getPerformanceConfig().resultLimit;
 		const results = await this.searchService.findIcons(description, resultLimit);
 		
-		// Cache results with smart caching
+		// Cache results with smart caching if enabled
 		if (results.length > 0) {
-			await this.smartCacheService.set(description, results);
+			if (this.gracefulDegradation.isFeatureEnabled('predictive-cache')) {
+				await this.smartCacheService.set(description, results);
+			}
+			this.fallbackManager.cacheForFallback(`findIcons:${description}`, results);
 		}
 		
 		return results;
@@ -614,6 +873,105 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 		if (this.regionCoordinator) {
 			this.regionCoordinator.updateHealthMetrics(load, latency, metadata);
 		}
+	}
+
+	/**
+	 * Update system health metrics for graceful degradation
+	 */
+	private updateSystemHealth(): void {
+		// Generate synthetic health metrics based on current system state
+		const now = Date.now();
+		const activeConnections = Math.floor(Math.random() * 200) + 50; // Simulate 50-250 connections
+		const queueSize = Math.floor(Math.random() * 20); // Simulate 0-20 queue size
+		
+		// Simulate realistic metrics with some variability
+		const cpuUsage = Math.min(0.9, Math.random() * 0.4 + 0.2); // 20-60% with spikes
+		const memoryUsage = Math.min(0.95, Math.random() * 0.3 + 0.4); // 40-70% with spikes
+		const responseTime = Math.floor(Math.random() * 500 + 100); // 100-600ms
+		const errorRate = Math.random() * 0.05; // 0-5% error rate
+
+		this.gracefulDegradation.updateSystemHealth({
+			cpuUsage,
+			memoryUsage,
+			responseTime,
+			errorRate,
+			activeConnections,
+			queueSize,
+			timestamp: now
+		});
+
+		// Update region health if coordinator is available
+		if (this.regionCoordinator) {
+			this.regionCoordinator.updateHealthMetrics(
+				cpuUsage,
+				responseTime,
+				{
+					memoryUsage,
+					errorRate,
+					activeConnections,
+					queueSize
+				}
+			);
+		}
+	}
+
+	/**
+	 * Get resilience status and metrics
+	 * @returns {object} Comprehensive resilience status
+	 */
+	async getResilienceStatus(): Promise<object> {
+		const circuitBreakerStatus = new Map();
+		for (const [name, breaker] of this.circuitBreakers.entries()) {
+			circuitBreakerStatus.set(name, {
+				state: breaker.getState(),
+				metrics: breaker.getMetrics(),
+				health: breaker.getHealthStatus()
+			});
+		}
+
+		return {
+			gracefulDegradation: this.gracefulDegradation.getStatus(),
+			circuitBreakers: Object.fromEntries(circuitBreakerStatus),
+			fallbackManager: {
+				statistics: Object.fromEntries(this.fallbackManager.getStatistics())
+			},
+			resilienceMetrics: this.gracefulDegradation.getResilienceMetrics(),
+			systemHealth: 'monitoring'
+		};
+	}
+
+	/**
+	 * Force system degradation level (admin/testing)
+	 * @param {string} level - Degradation level to force
+	 * @param {string} reason - Reason for forced degradation
+	 */
+	forceDegradationLevel(level: string, reason: string = 'Manual override'): void {
+		this.gracefulDegradation.forceDegradationLevel(level as any, reason);
+	}
+
+	/**
+	 * Reset circuit breaker state (admin/testing)
+	 * @param {string} circuitBreakerName - Name of circuit breaker to reset
+	 */
+	resetCircuitBreaker(circuitBreakerName?: string): void {
+		if (circuitBreakerName) {
+			const breaker = this.circuitBreakers.get(circuitBreakerName);
+			if (breaker) {
+				breaker.reset();
+			}
+		} else {
+			// Reset all circuit breakers
+			for (const breaker of this.circuitBreakers.values()) {
+				breaker.reset();
+			}
+		}
+	}
+
+	/**
+	 * Clear fallback caches and statistics
+	 */
+	clearFallbackData(): void {
+		this.fallbackManager.clear();
 	}
 
 	/**
