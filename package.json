@@ -29,11 +29,11 @@
 		"cf-typegen": "wrangler types"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.6.4",
+		"@cloudflare/vitest-pool-workers": "^0.6.16",
 		"@cloudflare/workers-types": "^4.20250224.0",
 		"typescript": "^5.5.2",
 		"vitest": "~2.1.9",
-		"wrangler": "^3.110.0"
+		"wrangler": "^3.114.12"
 	},
 	"dependencies": {
 		"workers-mcp": "^0.0.13"
