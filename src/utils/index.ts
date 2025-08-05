@@ -5,3 +5,4 @@
 
 export * from './similarity';
 export * from './text';
+export * from './bloom-filter';

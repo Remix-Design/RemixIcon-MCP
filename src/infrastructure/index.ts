@@ -5,3 +5,7 @@
 
 export * from './logging';
 export * from './result';
+export * from './storage';
+export * from './cache';
+export * from './error';
+export * from './config';

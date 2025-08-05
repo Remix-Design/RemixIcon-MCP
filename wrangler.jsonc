@@ -6,10 +6,28 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "mcp-server-remix-icon",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-02-04",
+	"compatibility_date": "2025-02-24",
 	"observability": {
 		"enabled": true
 	},
+	"kv_namespaces": [
+		{
+			"binding": "ICON_CATALOG",
+			"id": "icon_catalog_production",
+			"preview_id": "icon_catalog_preview"
+		}
+	],
+	"analytics_engine_datasets": [
+		{
+			"binding": "ANALYTICS_ENGINE",
+			"dataset": "remix_icon_analytics"
+		}
+	],
+	"vars": {
+		"TELEMETRY_ENABLED": "true",
+		"DASHBOARD_ENABLED": "true",
+		"LOG_LEVEL": "INFO"
+	}
   /**
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -27,10 +45,7 @@
    * Environment Variables
    * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
    */
-  // "vars": { "MY_VARIABLE": "production_value" },
-  "vars": {
-		"SHARED_SECRET": "bfa9b87c17625b497f0fbf0d8a5f2f78f1e587455b7e0cf5fdeb7889916ee30d"
-	}
+  // "vars": { "MY_VARIABLE": "production_value" }
   /**
    * Note: Use secrets to store sensitive data.
    * https://developers.cloudflare.com/workers/configuration/secrets/

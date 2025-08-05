@@ -32,6 +32,12 @@ export interface IInvertedIndex {
 	 * @returns Array of matching icon IDs with their relevance scores
 	 */
 	searchByCategory(query: string, category: string): Map<string, number>;
+
+	/**
+	 * Gets the complete search index for serialization
+	 * @returns Combined search index
+	 */
+	getIndex(): Map<string, string[]>;
 }
 
 /**
@@ -338,6 +344,33 @@ export class InvertedIndexService implements IInvertedIndex {
 		}
 
 		return [...new Set(synonyms)]; // Remove duplicates
+	}
+
+	/**
+	 * Gets the complete search index for serialization
+	 * @returns Combined search index as term -> icon names mapping
+	 */
+	getIndex(): Map<string, string[]> {
+		const combinedIndex = new Map<string, string[]>();
+
+		// Combine all indexes
+		const allIndexes = [
+			{ index: this.nameIndex, prefix: 'name:' },
+			{ index: this.categoryIndex, prefix: 'category:' },
+			{ index: this.tagIndex, prefix: 'tag:' },
+			{ index: this.usageIndex, prefix: 'usage:' }
+		];
+
+		for (const { index, prefix } of allIndexes) {
+			for (const [term, termFreq] of index.entries()) {
+				const iconNames = Object.keys(termFreq);
+				if (iconNames.length > 0) {
+					combinedIndex.set(`${prefix}${term}`, iconNames);
+				}
+			}
+		}
+
+		return combinedIndex;
 	}
 
 	/**

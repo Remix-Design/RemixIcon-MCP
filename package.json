@@ -22,6 +22,7 @@
 	"homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
 	"scripts": {
 		"deploy": "workers-mcp docgen src/index.ts && wrangler deploy",
+		"deploy:kv": "node scripts/deploy-with-kv.js",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
 		"test": "vitest",
