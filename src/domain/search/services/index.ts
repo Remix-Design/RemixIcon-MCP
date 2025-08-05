@@ -10,3 +10,5 @@ export * from './scorer.service';
 export * from './unified-search.service';
 export * from './tiered-search.service';
 export * from './incremental-index.service';
+export * from './advanced-query.service';
+export * from './faceted-search.service';

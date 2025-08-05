@@ -1,7 +1,7 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ProxyToSelf } from 'workers-mcp';
 import { ResponseContent, IconMetadata } from './domain/icon/types/icon.types';
-import { UnifiedSearchService, TieredSearchService, InvertedIndexService, QueryService, ScorerService } from './domain/search/services';
+import { UnifiedSearchService, TieredSearchService, InvertedIndexService, QueryService, ScorerService, AdvancedQueryService, FacetedSearchService } from './domain/search/services';
 import { ConsoleLogger, LogLevel } from './infrastructure/logging/logger';
 import { CloudflareKVStorage } from './infrastructure/storage/kv-storage.service';
 import { UnifiedCacheService } from './infrastructure/cache/unified-cache.service';
@@ -37,6 +37,8 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	private circuitBreakers: Map<string, CircuitBreakerService> = new Map();
 	private gracefulDegradation: GracefulDegradationService;
 	private fallbackManager: FallbackManagerService;
+	private advancedQueryService: AdvancedQueryService;
+	private facetedSearchService: FacetedSearchService;
 
 	constructor(ctx: ExecutionContext, env: Env) {
 		super(ctx, env);
@@ -187,6 +189,9 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 
 		// Initialize resilience services
 		this.initializeResilienceServices();
+
+		// Initialize advanced search services
+		this.initializeAdvancedSearchServices();
 	}
 
 	/**
@@ -365,6 +370,25 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 			message: 'System is in emergency mode. Only basic functionality is available.',
 			availableOperations: ['getIconCategories'],
 			suggestion: 'Please try again in a few minutes.'
+		});
+	}
+
+	/**
+	 * Initialize advanced search services
+	 */
+	private initializeAdvancedSearchServices(): void {
+		// Initialize advanced query service
+		this.advancedQueryService = new AdvancedQueryService(this.logger);
+
+		// Initialize faceted search service
+		this.facetedSearchService = new FacetedSearchService(
+			this.logger,
+			this.advancedQueryService
+		);
+
+		this.logger.info('Advanced search services initialized', {
+			advancedQuery: true,
+			facetedSearch: true
 		});
 	}
 
@@ -972,6 +996,327 @@ export default class RemixIconMCP extends WorkerEntrypoint<Env> {
 	 */
 	clearFallbackData(): void {
 		this.fallbackManager.clear();
+	}
+
+	/**
+	 * Execute advanced search with query parsing and complex filters
+	 * @param {string} queryString - Advanced query string with operators and filters
+	 * @param {object} options - Search options including facets and pagination
+	 * @returns {object} Advanced search results with facets and metadata
+	 */
+	async executeAdvancedSearch(
+		queryString: string,
+		options?: {
+			facets?: boolean;
+			limit?: number;
+			offset?: number;
+			includeDebugInfo?: boolean;
+			includeHighlights?: boolean;
+		}
+	): Promise<object> {
+		// Update system health metrics
+		this.updateSystemHealth();
+
+		try {
+			const catalogResult = await this.kvStorage.getIconCatalog();
+			const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
+
+			// Parse the advanced query
+			const advancedQuery = this.advancedQueryService.parseQuery(queryString);
+			
+			// Apply options
+			if (options?.limit !== undefined) advancedQuery.limit = options.limit;
+			if (options?.offset !== undefined) advancedQuery.offset = options.offset;
+			if (options?.includeDebugInfo !== undefined) advancedQuery.includeDebugInfo = options.includeDebugInfo;
+			if (options?.includeHighlights !== undefined) advancedQuery.includeHighlights = options.includeHighlights;
+
+			// Execute the advanced search
+			const result = await this.advancedQueryService.executeAdvancedSearch(advancedQuery, icons);
+
+			this.logger.debug('Advanced search executed', {
+				query: queryString,
+				results: result.results.length,
+				totalResults: result.totalResults,
+				queryTime: result.queryTime
+			});
+
+			return result;
+
+		} catch (error) {
+			this.logger.error('Advanced search failed', {
+				query: queryString,
+				error: error instanceof Error ? error.message : 'Unknown error'
+			});
+
+			// Return fallback response
+			return {
+				results: [],
+				facets: [],
+				totalResults: 0,
+				queryTime: 0,
+				query: { terms: [], filters: [], facets: [] },
+				error: 'Advanced search temporarily unavailable'
+			};
+		}
+	}
+
+	/**
+	 * Execute faceted search with dynamic filtering and aggregation
+	 * @param {object} request - Faceted search request with selections and configurations
+	 * @returns {object} Faceted search response with results and facet data
+	 */
+	async executeFacetedSearch(request: {
+		query?: string;
+		facetSelections?: Array<{
+			facetType: string;
+			values: string[];
+			exclude?: boolean;
+		}>;
+		limit?: number;
+		offset?: number;
+		sortBy?: string;
+		sortDirection?: 'asc' | 'desc';
+	}): Promise<object> {
+		// Update system health metrics
+		this.updateSystemHealth();
+
+		try {
+			const catalogResult = await this.kvStorage.getIconCatalog();
+			const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
+
+			// Convert request to internal format
+			const facetedRequest = {
+				query: request.query || '',
+				facetSelections: (request.facetSelections || []).map(sel => ({
+					facetType: sel.facetType as any,
+					values: sel.values,
+					exclude: sel.exclude
+				})),
+				facetConfigs: [
+					{
+						type: 'category' as any,
+						field: 'category',
+						displayName: 'Category',
+						maxValues: 20,
+						sortBy: 'count' as any,
+						sortDirection: 'desc' as any
+					},
+					{
+						type: 'tag' as any,
+						field: 'tags',
+						displayName: 'Tags',
+						maxValues: 30,
+						sortBy: 'count' as any,
+						sortDirection: 'desc' as any
+					},
+					{
+						type: 'style' as any,
+						field: 'style',
+						displayName: 'Style',
+						maxValues: 10,
+						sortBy: 'count' as any,
+						sortDirection: 'desc' as any
+					},
+					{
+						type: 'usage' as any,
+						field: 'usage',
+						displayName: 'Usage Context',
+						maxValues: 15,
+						sortBy: 'count' as any,
+						sortDirection: 'desc' as any
+					}
+				],
+				limit: request.limit,
+				offset: request.offset,
+				sortBy: request.sortBy,
+				sortDirection: request.sortDirection
+			};
+
+			// Execute faceted search
+			const result = await this.facetedSearchService.search(facetedRequest, icons);
+
+			this.logger.debug('Faceted search executed', {
+				query: request.query,
+				facetSelections: request.facetSelections?.length || 0,
+				results: result.icons.length,
+				totalResults: result.totalResults,
+				searchTime: result.searchTime
+			});
+
+			return result;
+
+		} catch (error) {
+			this.logger.error('Faceted search failed', {
+				request,
+				error: error instanceof Error ? error.message : 'Unknown error'
+			});
+
+			// Return fallback response
+			return {
+				icons: [],
+				facets: [],
+				totalResults: 0,
+				appliedFilters: [],
+				searchTime: 0,
+				suggestions: {},
+				error: 'Faceted search temporarily unavailable'
+			};
+		}
+	}
+
+	/**
+	 * Get search suggestions and related queries
+	 * @param {string} partialQuery - Partial query for autocompletion
+	 * @param {object} context - Optional context for personalized suggestions
+	 * @returns {object} Search suggestions and related queries
+	 */
+	async getSearchSuggestions(
+		partialQuery: string,
+		context?: {
+			recentQueries?: string[];
+			preferredCategories?: string[];
+			userId?: string;
+		}
+	): Promise<object> {
+		try {
+			const catalogResult = await this.kvStorage.getIconCatalog();
+			const icons = catalogResult.success && catalogResult.data ? catalogResult.data : iconCatalog.icons;
+
+			// Generate suggestions based on icon names, categories, and tags
+			const suggestions = {
+				queries: [] as string[],
+				categories: [] as string[],
+				tags: [] as string[],
+				didYouMean: undefined as string | undefined
+			};
+
+			const queryLower = partialQuery.toLowerCase();
+
+			// Collect matching icon names
+			const matchingNames = new Set<string>();
+			const matchingCategories = new Set<string>();
+			const matchingTags = new Set<string>();
+
+			for (const icon of icons) {
+				// Name suggestions
+				if (icon.name.toLowerCase().includes(queryLower)) {
+					matchingNames.add(icon.name);
+				}
+
+				// Category suggestions
+				if (icon.category.toLowerCase().includes(queryLower)) {
+					matchingCategories.add(icon.category);
+				}
+
+				// Tag suggestions
+				if (icon.tags) {
+					for (const tag of icon.tags) {
+						if (tag.toLowerCase().includes(queryLower)) {
+							matchingTags.add(tag);
+						}
+					}
+				}
+			}
+
+			// Convert to arrays and limit results
+			suggestions.queries = Array.from(matchingNames).slice(0, 10);
+			suggestions.categories = Array.from(matchingCategories).slice(0, 5);
+			suggestions.tags = Array.from(matchingTags).slice(0, 15);
+
+			// Add "did you mean" suggestion for potential typos
+			if (partialQuery.length > 3 && suggestions.queries.length === 0) {
+				const commonTerms = ['home', 'user', 'settings', 'search', 'menu', 'button', 'arrow'];
+				for (const term of commonTerms) {
+					if (this.levenshteinDistance(queryLower, term) <= 2) {
+						suggestions.didYouMean = term;
+						break;
+					}
+				}
+			}
+
+			// Include context-based suggestions if available
+			if (context?.preferredCategories) {
+				suggestions.categories = [
+					...context.preferredCategories.filter(cat => 
+						cat.toLowerCase().includes(queryLower)
+					),
+					...suggestions.categories
+				].slice(0, 5);
+			}
+
+			return suggestions;
+
+		} catch (error) {
+			this.logger.error('Search suggestions failed', {
+				partialQuery,
+				error: error instanceof Error ? error.message : 'Unknown error'
+			});
+
+			return {
+				queries: [],
+				categories: [],
+				tags: [],
+				error: 'Search suggestions temporarily unavailable'
+			};
+		}
+	}
+
+	/**
+	 * Simple Levenshtein distance calculation for suggestions
+	 */
+	private levenshteinDistance(str1: string, str2: string): number {
+		const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+
+		for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+		for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+
+		for (let j = 1; j <= str2.length; j++) {
+			for (let i = 1; i <= str1.length; i++) {
+				const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+				matrix[j][i] = Math.min(
+					matrix[j][i - 1] + 1,
+					matrix[j - 1][i] + 1,
+					matrix[j - 1][i - 1] + indicator
+				);
+			}
+		}
+
+		return matrix[str2.length][str1.length];
+	}
+
+	/**
+	 * Get advanced search analytics
+	 * @returns {object} Analytics data for advanced search features
+	 */
+	async getAdvancedSearchAnalytics(): Promise<object> {
+		return {
+			advancedQuery: {
+				supportedOperators: ['AND', 'OR', 'NOT', 'NEAR', 'EXACT'],
+				supportedFilters: ['category', 'tag', 'style', 'usage'],
+				wildcardSupport: true,
+				fieldSearchSupport: true
+			},
+			facetedSearch: this.facetedSearchService.getAnalytics(),
+			searchFeatures: {
+				compound: true,
+				wildcard: true,
+				fieldSpecific: true,
+				faceted: true,
+				hierarchical: true,
+				ranged: true,
+				suggestions: true,
+				highlights: true,
+				debugInfo: true
+			}
+		};
+	}
+
+	/**
+	 * Clear advanced search caches
+	 */
+	clearAdvancedSearchCaches(): void {
+		this.facetedSearchService.clearCache();
+		this.logger.info('Advanced search caches cleared');
 	}
 
 	/**
