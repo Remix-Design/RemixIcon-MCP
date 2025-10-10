@@ -1,116 +1,76 @@
 # Remix Icon MCP ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
-
 [English](README.md) | 简体中文
 
-基于 Cloudflare Workers 构建的强大图标搜索和推荐服务，通过先进的语义匹配算法提供智能图标发现功能。
+一个轻量级的 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）服务器：用户只需提供与图标相关的关键词，服务器即返回匹配的 Remix Icon 名称与元数据。不再依赖 Cloudflare Workers、缓存系统或多阶段 AI 检索。
 
-## 功能特点
+## 特性
 
-- **智能图标搜索**：基于自然语言描述查找图标，使用多重相似度算法
-- **多语言支持**：针对中英文输入进行了优化
-- **分类管理**：按类别浏览和搜索图标
-- **高级匹配**：使用多种算法实现更好的搜索结果：
-  - Jaccard 相似度
-  - N-gram 匹配
-  - 分类匹配
-  - 精确匹配
-  - Levenshtein 距离
-  - 名称匹配
-  - 标签匹配
-- **倒排索引**：使用倒排索引进行快速初步搜索
-- **缓存机制**：采用 LRU 缓存提升性能
+- **关键词工具**：仅接受以逗号分隔的关键词输入，返回按相关度排序的 Remix Icon。
+- **本地倒排索引**：启动时预构建索引，查询全部在内存中完成，响应迅速。
+- **可预期的结果**：完全基于关键词匹配与前缀扩展，无外部 API 或 AI 模型。
+- **丰富的输出**：每条结果都包含图标路径、分类、风格以及触发匹配的 token。
 
-## API 接口
+## 快速开始
 
-### 查找图标
-```typescript
-findIcons(description: string): ResponseContent[]
+```bash
+npm install
+npm run build
 ```
-根据用户描述查找图标，返回相似度最高的前 5 个推荐结果。
 
-### 获取图标分类
-```typescript
-getIconCategories(): ResponseContent[]
-```
-返回所有可用的图标分类列表。
+通过运行编译后的 JavaScript（例如 `node build/index.js`）或使用你喜欢的 TypeScript 运行器来启动 MCP 服务器。服务器基于 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
 
-### 按分类查找图标
-```typescript
-findIconsByCategory(description: string, category: string): ResponseContent[]
+- `search_icons` – 必填参数 `keywords`（逗号分隔的关键词字符串），可选参数 `limit`（默认 20，最大 100）。
+
+### 工具调用示例
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "search_icons",
+    "arguments": {
+      "keywords": "layout, grid, design",
+      "limit": 5
+    }
+  }
+}
 ```
-在指定分类中基于描述搜索图标，返回相似度最高的前 5 个推荐结果。
+
+服务器会返回便于阅读的摘要文本，以及包含匹配数量等信息的结构化元数据。
 
 ## 项目结构
 
 ```
 .
-├── src/                   # 源代码目录
-│   ├── index.ts           # 主入口文件
-│   ├── data/              # 数据文件，包括图标目录
-│   ├── domain/            # 领域模型和服务
-│   │   ├── icon/          # 图标领域模型
-│   │   └── search/        # 搜索功能
-│   ├── infrastructure/    # 基础设施组件
-│   │   ├── logging/       # 日志工具
-│   │   └── result/        # 结果处理
-│   └── utils/             # 工具函数
-│       ├── similarity/    # 相似度计算算法
-│       └── text/          # 文本处理工具
-├── tests/                 # 测试文件
-│   ├── integration/       # 集成测试
-│   └── unit/              # 单元测试
-└── wrangler.jsonc         # Cloudflare Workers 配置
+├── src/
+│   ├── data/icon-catalog.json  # Remix Icon 元数据（沿用原项目）
+│   ├── icon-search.ts          # 关键词解析、倒排索引与排序逻辑
+│   ├── icon-types.ts           # 图标类型定义
+│   ├── index.ts                # 入口（启动 MCP 服务器）
+│   └── mcp-server.ts           # 精简的 JSON-RPC MCP 实现
+├── tests/                      # Vitest 测试（保持不变）
+├── package.json                # 精简后的 npm 配置
+└── tsconfig.json               # 面向 Node 环境的 TypeScript 配置
 ```
 
-## 技术细节
+## 实现说明
 
-- 基于 Cloudflare Workers 平台构建
-- 使用 LRU 缓存优化性能
-- 实现加权多算法相似度评分
-- 支持中文的字符级和词级匹配
-- 可配置的相似度阈值和权重
-- 使用倒排索引加速初步搜索
+- 使用支持 Unicode 的分词方式并统一转为小写。
+- 倒排索引将每个 token 映射到包含它的图标；此前缀扩展可以提供轻量级的模糊匹配。
+- 结果根据关键词覆盖度打分（精确匹配权重更高），并进行确定性排序。
+- 响应遵循 MCP 工具格式，带 `Content-Length` 头以确保兼容性。
 
-## 性能优化
-
-- 实现 LRU（最近最少使用）缓存策略
-- 最大缓存容量：2000 条
-- 最低相似度阈值：0.08
-- 针对中英文优化的相似度计算
-- 两级搜索策略：倒排索引用于快速初步结果，然后进行详细评分
-
-## 响应格式
-
-所有接口返回的响应格式如下：
-```typescript
-interface ResponseContent {
-    type: 'text';
-    text: string;
-}
-```
-
-## 开发说明
-
-本项目使用 TypeScript 和 Cloudflare Workers 构建。主要功能在继承自 `WorkerEntrypoint` 的 `RemixIconMCP` 类中实现。
-
-### 设置与部署
+## 开发脚本
 
 ```bash
-# 安装依赖
-npm install
-
-# 运行开发服务器
-npm run dev
-
-# 部署到 Cloudflare Workers
-npm run deploy
-
-# 运行测试
-npm run test
+npm run build   # 类型检查
+npm run lint    # 等价于 build（tsc --noEmit）
+npm run test    # 运行现有的 Vitest 测试
 ```
 
 ## 许可证
 
-[MIT 许可证](LICENSE) 
+[MIT License](LICENSE)

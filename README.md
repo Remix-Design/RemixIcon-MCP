@@ -1,116 +1,76 @@
 # Remix Icon MCP ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
-
 English | [简体中文](README.zh-CN.md)
 
-A powerful icon search and recommendation service built on Cloudflare Workers, providing intelligent icon discovery through advanced semantic matching algorithms.
+A lightweight [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that maps icon-related keywords directly to Remix Icon metadata. Provide keywords, receive matching icon names and metadata – no Cloudflare Workers, caches, or AI pipelines required.
 
 ## Features
 
-- **Smart Icon Search**: Find icons based on natural language descriptions using multiple similarity algorithms
-- **Multi-language Support**: Optimized for both English and Chinese text input
-- **Category Management**: Browse and search icons by categories
-- **Advanced Matching**: Uses multiple algorithms for better search results:
-  - Jaccard Similarity
-  - N-gram Matching
-  - Category Matching
-  - Exact Matching
-  - Levenshtein Distance
-  - Name Matching
-  - Tag-based Matching
-- **Inverted Index**: Fast preliminary search using an inverted index
-- **Caching**: LRU caching for improved performance
+- **Keyword-focused MCP Tool** – Accepts comma-separated icon keywords and returns ranked Remix Icon matches.
+- **Fast Local Index** – Pre-computed inverted index over the bundled icon catalog for instant lookup.
+- **Deterministic Results** – No remote services or AI heuristics, only keyword matching and prefix expansion.
+- **Metadata-rich Output** – Each result includes the icon path, category, style, and the tokens that triggered a match.
 
-## API Endpoints
+## Quick Start
 
-### Find Icons
-```typescript
-findIcons(description: string): ResponseContent[]
+```bash
+npm install
+npm run build
 ```
-Finds icons based on user description, returns top 5 recommendations with similarity scores.
 
-### Get Icon Categories
-```typescript
-getIconCategories(): ResponseContent[]
-```
-Returns a list of all available icon categories.
+Launch the MCP server by running the compiled JavaScript (for example with `node build/index.js`) or by executing the TypeScript entrypoint with your preferred runner. The server communicates over stdio using JSON-RPC 2.0 and exposes a single tool:
 
-### Find Icons by Category
-```typescript
-findIconsByCategory(description: string, category: string): ResponseContent[]
+- `search_icons` – requires a `keywords` string (comma-separated). Optional `limit` (default 20, max 100).
+
+### Example Tool Call
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "search_icons",
+    "arguments": {
+      "keywords": "layout, grid, design",
+      "limit": 5
+    }
+  }
+}
 ```
-Searches for icons within a specific category based on description, returns top 5 recommendations.
+
+The server returns human-readable summaries plus structured metadata indicating how many icons matched the supplied keywords.
 
 ## Project Structure
 
 ```
 .
-├── src/                   # Source code directory
-│   ├── index.ts           # Main entry point
-│   ├── data/              # Data files including icon catalog
-│   ├── domain/            # Domain models and services
-│   │   ├── icon/          # Icon domain models
-│   │   └── search/        # Search functionality
-│   ├── infrastructure/    # Infrastructure components
-│   │   ├── logging/       # Logging utilities
-│   │   └── result/        # Result handling
-│   └── utils/             # Utility functions
-│       ├── similarity/    # Similarity calculation algorithms
-│       └── text/          # Text processing utilities
-├── tests/                 # Test files
-│   ├── integration/       # Integration tests
-│   └── unit/              # Unit tests
-└── wrangler.jsonc         # Cloudflare Workers configuration
+├── src/
+│   ├── data/icon-catalog.json  # Remix Icon metadata (retained from the original project)
+│   ├── icon-search.ts          # Keyword parsing, inverted index, ranking
+│   ├── icon-types.ts           # Shared icon typings
+│   ├── index.ts                # Entry point (bootstraps the MCP server)
+│   └── mcp-server.ts           # Minimal JSON-RPC MCP server implementation
+├── tests/                      # Vitest tests (unchanged)
+├── package.json                # Lightweight npm manifest
+└── tsconfig.json               # Node-friendly TypeScript configuration
 ```
 
-## Technical Details
+## Implementation Notes
 
-- Built on Cloudflare Workers platform
-- Uses LRU caching for performance optimization
-- Implements weighted multi-algorithm similarity scoring
-- Supports both character and word-level matching for Chinese text
-- Configurable similarity thresholds and weights
-- Uses inverted index for faster preliminary search
+- Keywords are tokenised using Unicode-aware boundaries and normalised to lowercase.
+- An inverted index maps each token to the icons containing it; prefix expansion provides basic fuzzy matching without external libraries.
+- Results are scored by keyword coverage (exact matches weighted higher) and sorted deterministically.
+- Server responses follow MCP tool semantics and are emitted with `Content-Length` headers for compatibility.
 
-## Performance Optimization
-
-- Implements caching with LRU (Least Recently Used) strategy
-- Maximum cache size: 2000 entries
-- Minimum score threshold: 0.08
-- Optimized similarity calculations for both English and Chinese text
-- Two-tier search strategy: inverted index for fast preliminary results, followed by detailed scoring
-
-## Response Format
-
-All endpoints return responses in the following format:
-```typescript
-interface ResponseContent {
-    type: 'text';
-    text: string;
-}
-```
-
-## Development
-
-This project is built using TypeScript and Cloudflare Workers. The main functionality is implemented in the `RemixIconMCP` class which extends `WorkerEntrypoint`.
-
-### Setup and Deployment
+## Development Scripts
 
 ```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Deploy to Cloudflare Workers
-npm run deploy
-
-# Run tests
-npm run test
+npm run build   # Type-checks the project
+npm run lint    # Alias for build (tsc --noEmit)
+npm run test    # Run existing Vitest suite
 ```
 
 ## License
 
-[MIT License](LICENSE) 
+[MIT License](LICENSE)
