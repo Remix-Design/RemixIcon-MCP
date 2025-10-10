@@ -48,7 +48,7 @@ export async function startMcpServer(): Promise<void> {
           isError: true,
           content: [
             {
-              type: "text",
+              type: "text" as const,
               text: `Keyword search failed: ${message}`,
             },
           ],
@@ -76,7 +76,7 @@ function buildToolResponse(result: SearchIconsResponse) {
   return {
     content: [
       {
-        type: "text",
+        type: "text" as const,
         text: lines.join("\n"),
       },
     ],

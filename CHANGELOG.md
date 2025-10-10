@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.2.0] - 2025-10-11
+
+### Added
+- CLI runner infrastructure for standalone execution
+  - Added `bin/run.cjs` entry point for npx/npm execution
+  - New `src/cli/` directory with CLI implementation
+  - Package.json `bin` field for global installation support
+- Enhanced keyword parser with improved detection logic
+  - Support for up to 20 comma-separated keywords
+  - Better differentiation between keyword lists and natural language sentences
+  - Delimiter-based detection allows richer keyword input
+  - Comprehensive test coverage for new detection patterns
+
+### Changed
+- **BREAKING**: Removed configurable `limit` parameter from search API
+  - Fixed result count to 5 icons for all searches
+  - Simplified API surface by removing unnecessary configuration
+  - Updated `search_icons` tool to no longer accept `limit` argument
+- Improved keyword vs sentence detection algorithm
+  - Space-separated inputs with 4+ words now correctly detected as sentences
+  - Comma-separated inputs support up to 20 keywords before triggering sentence detection
+  - Stop word detection works with delimiters for better accuracy
+- Updated documentation to reflect CLI availability and fixed result count
+
+### Fixed
+- Downgraded Zod dependency from 4.1.12 to 3.25.76
+  - Resolved breaking changes incompatible with MCP SDK
+  - Fixed TypeScript configuration compatibility issues
+- Corrected test suites to match new API behavior (removed limit tests)
+
+
 ## [0.1.0] - 2025-03-01
 
 ### Added
@@ -65,4 +96,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-language support optimization
   - English and Chinese text processing
 
+[0.2.0]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.0.1...v0.1.0
