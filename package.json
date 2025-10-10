@@ -19,6 +19,9 @@
     "url": "https://github.com/FradSer/mcp-server-remix-icon/issues"
   },
   "homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
+  "bin": {
+    "mcp-server-remix-icon": "bin/run.cjs"
+  },
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "biome lint --write",
@@ -29,12 +32,13 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
     "@types/node": "^24.7.1",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
     "flexsearch": "^0.8.212",
-    "zod": "^4.1.12"
+    "zod": "^3.25.76"
   }
 }
