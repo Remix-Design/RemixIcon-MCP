@@ -21,16 +21,20 @@
   "homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
   "scripts": {
     "build": "tsc --noEmit",
-    "lint": "biome check .",
-    "format": "biome format --write .",
+    "lint": "biome lint --write",
+    "format": "biome format --write",
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.8.3",
-    "@mcp-server-remix-icon/biome-shim": "file:tooling/biome-shim",
-    "typescript": "^5.5.2",
-    "vitest": "~2.1.9"
+    "@biomejs/biome": "^2.2.5",
+    "@types/node": "^24.7.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "flexsearch": "^0.8.212",
+    "zod": "^4.1.12"
+  }
 }

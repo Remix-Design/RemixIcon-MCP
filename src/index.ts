@@ -1,3 +1,6 @@
-import { createServer } from './mcp-server';
+import { startMcpServer } from "./interface/mcp/icon-keyword-server";
 
-createServer().listen();
+startMcpServer().catch((error) => {
+  console.error("Failed to start MCP server", error);
+  process.exit(1);
+});

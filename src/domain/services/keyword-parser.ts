@@ -1,0 +1,61 @@
+const WORD_BOUNDARY = /[\p{P}\p{S}\s]+/u;
+
+export class KeywordParser {
+  parse(raw: string): string[] {
+    if (!raw || raw.trim().length === 0) {
+      throw new Error("Keyword input must not be empty.");
+    }
+
+    const keywords = raw.split(/[\n,]/u).flatMap((segment) =>
+      segment
+        .split(WORD_BOUNDARY)
+        .map((token) => token.trim().toLowerCase())
+        .filter(Boolean),
+    );
+
+    if (keywords.length === 0) {
+      throw new Error("Keyword input must not be empty.");
+    }
+
+    if (this.containsSentence(raw, keywords)) {
+      throw new Error(
+        "Keyword input must be provided as short keywords, not full sentences.",
+      );
+    }
+
+    return Array.from(new Set(keywords));
+  }
+
+  private containsSentence(raw: string, tokens: string[]): boolean {
+    if (tokens.length >= 6) {
+      return true;
+    }
+
+    const spaceSeparated = raw.trim().split(/\s+/u);
+    const hasDelimiter = /[,;\n]/u.test(raw);
+    const includesStopWord = tokens.some((token) => STOP_WORDS.has(token));
+
+    if (!hasDelimiter && spaceSeparated.length >= 4) {
+      return true;
+    }
+
+    return includesStopWord;
+  }
+}
+
+const STOP_WORDS = new Set([
+  "about",
+  "for",
+  "from",
+  "have",
+  "here",
+  "icon",
+  "icons",
+  "please",
+  "show",
+  "tell",
+  "that",
+  "the",
+  "what",
+  "with",
+]);

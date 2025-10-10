@@ -2,23 +2,24 @@
 
 [English](README.md) | 简体中文
 
-一个轻量级的 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）服务器：用户只需提供与图标相关的关键词，服务器即返回匹配的 Remix Icon 名称与元数据。不再依赖 Cloudflare Workers、缓存系统或多阶段 AI 检索。
+一个轻量级的 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）服务器：用户只需提供简洁的图标关键词，服务器即返回匹配的 Remix Icon 名称与元数据——无需 Cloudflare Workers、缓存系统或多阶段 AI 检索。
 
 ## 特性
 
-- **关键词工具**：仅接受以逗号分隔的关键词输入，返回按相关度排序的 Remix Icon。
-- **本地倒排索引**：启动时预构建索引，查询全部在内存中完成，响应迅速。
-- **可预期的结果**：完全基于关键词匹配与前缀扩展，无外部 API 或 AI 模型。
-- **丰富的输出**：每条结果都包含图标路径、分类、风格以及触发匹配的 token。
+- **仅限关键词的工具**：严格要求输入为逗号分隔的短关键词，自动拒绝自然语言描述。
+- **FlexSearch 索引**：使用 FlexSearch v0.8 文档索引在本地构建高速检索。
+- **Clean Architecture 分层**：领域、应用、基础设施、接口层各自独立，易于测试与扩展。
+- **LLM 友好的输出**：返回排序候选、命中的 token，并提示模型从结果中只选择一个图标。
 
 ## 快速开始
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm typecheck
+pnpm test
 ```
 
-通过运行编译后的 JavaScript（例如 `node build/index.js`）或使用你喜欢的 TypeScript 运行器来启动 MCP 服务器。服务器基于 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
+可以直接使用你喜欢的 TypeScript 运行器启动服务器（例如 `pnpm exec tsx src/index.ts`），或先编译再运行。服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
 
 - `search_icons` – 必填参数 `keywords`（逗号分隔的关键词字符串），可选参数 `limit`（默认 20，最大 100）。
 
@@ -46,33 +47,30 @@ npm run build
 ```
 .
 ├── src/
-│   ├── data/icon-catalog.json  # Remix Icon 元数据（沿用原项目）
-│   ├── icon-search.ts          # 关键词解析、倒排索引与排序逻辑
-│   ├── icon-types.ts           # 图标类型定义
-│   ├── index.ts                # 入口（启动 MCP 服务器）
-│   └── mcp-server.ts           # 精简的 JSON-RPC MCP 实现
-├── tests/                      # Vitest 测试（保持不变）
-├── package.json                # 精简后的 npm 配置
-└── tsconfig.json               # 面向 Node 环境的 TypeScript 配置
+│   ├── bootstrap/                  # 装配依赖，维持 Clean Architecture 分层
+│   ├── domain/                     # 图标实体与关键词解析器
+│   ├── application/                # 搜索用例，负责校验与排序
+│   ├── infrastructure/search/      # 基于 FlexSearch 的搜索实现
+│   ├── interface/mcp/              # 使用 @modelcontextprotocol/sdk 构建的 MCP 服务器
+│   └── data/icon-catalog.json      # Remix Icon 元数据
+├── tests/                          # Vitest 测试用例
+├── package.json                    # pnpm 脚本配置
+└── tsconfig.json                   # 严格的 TypeScript 配置（含 Node 类型）
 ```
 
 ## 实现说明
 
-- 使用支持 Unicode 的分词方式并统一转为小写。
-- 倒排索引将每个 token 映射到包含它的图标；此前缀扩展可以提供轻量级的模糊匹配。
-- 结果根据关键词覆盖度打分（精确匹配权重更高），并进行确定性排序。
-- 响应遵循 MCP 工具格式，带 `Content-Length` 头以确保兼容性。
+- 关键词解析器会剔除空白、去重，并在检测到句子式输入时直接拒绝。
+- FlexSearch 对图标名称、标签、用途、分类等字段建索引，结合字段权重与 token 命中计算得分。
+- 应用层组合解析、仓库查询与响应格式化，接口层只负责传输协议。
+- MCP 响应同时提供可读提示与机器可消费的结果，确保 LLM 只选择单个图标。
 
 ## 开发脚本
 
 ```bash
-npm run build   # 类型检查
-npm run lint    # 执行 Biome 检查（不写入）
-npm run test    # 运行现有的 Vitest 测试
-
-# 使用 pnpm 可以直接调用 Biome。仓库内的 shim 会把 `--write`
-# 转换成 Biome 支持的 `--apply`，以保持既有命令兼容。
-pnpm exec biome check --write
+pnpm typecheck   # 类型检查（tsc --noEmit）
+pnpm test        # 运行 Vitest
+pnpm exec biome check --write --unsafe   # 使用 Biome 自动修复格式与 lint
 ```
 
 ## 许可证

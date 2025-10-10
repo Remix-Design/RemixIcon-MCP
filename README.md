@@ -2,23 +2,24 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A lightweight [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that maps icon-related keywords directly to Remix Icon metadata. Provide keywords, receive matching icon names and metadata – no Cloudflare Workers, caches, or AI pipelines required.
+A lightweight [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that maps icon-focused keywords directly to Remix Icon metadata. Provide concise keywords, receive matching icon names and metadata – no workers, caches, or remote heuristics required.
 
 ## Features
 
-- **Keyword-focused MCP Tool** – Accepts comma-separated icon keywords and returns ranked Remix Icon matches.
-- **Fast Local Index** – Pre-computed inverted index over the bundled icon catalog for instant lookup.
-- **Deterministic Results** – No remote services or AI heuristics, only keyword matching and prefix expansion.
-- **Metadata-rich Output** – Each result includes the icon path, category, style, and the tokens that triggered a match.
+- **Keyword-only MCP Tool** – Enforces short, comma-separated keywords and rejects natural-language prompts before invoking the search use case.
+- **FlexSearch-backed Index** – Uses FlexSearch v0.8's document index for high-performance token lookup over the local Remix Icon catalog.
+- **Clean Architecture** – Domain entities, application use cases, infrastructure adapters, and MCP interface remain isolated for easy testing.
+- **LLM-ready Responses** – Returns ranked candidates, matched tokens, and explicit guidance instructing the model to choose exactly one icon.
 
 ## Quick Start
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm typecheck
+pnpm test
 ```
 
-Launch the MCP server by running the compiled JavaScript (for example with `node build/index.js`) or by executing the TypeScript entrypoint with your preferred runner. The server communicates over stdio using JSON-RPC 2.0 and exposes a single tool:
+Launch the MCP server by running the TypeScript entrypoint with your preferred runner (e.g. `pnpm exec tsx src/index.ts`) or by compiling first. The server communicates over stdio using JSON-RPC 2.0 via the official `@modelcontextprotocol/sdk` and exposes a single tool:
 
 - `search_icons` – requires a `keywords` string (comma-separated). Optional `limit` (default 20, max 100).
 
@@ -46,33 +47,30 @@ The server returns human-readable summaries plus structured metadata indicating 
 ```
 .
 ├── src/
-│   ├── data/icon-catalog.json  # Remix Icon metadata (retained from the original project)
-│   ├── icon-search.ts          # Keyword parsing, inverted index, ranking
-│   ├── icon-types.ts           # Shared icon typings
-│   ├── index.ts                # Entry point (bootstraps the MCP server)
-│   └── mcp-server.ts           # Minimal JSON-RPC MCP server implementation
-├── tests/                      # Vitest tests (unchanged)
-├── package.json                # Lightweight npm manifest
-└── tsconfig.json               # Node-friendly TypeScript configuration
+│   ├── bootstrap/                  # Dependency wiring for Clean Architecture boundaries
+│   ├── domain/                     # Icon entities and keyword parser
+│   ├── application/                # Search use case orchestrating validation and ranking
+│   ├── infrastructure/search/      # FlexSearch-backed repository implementation
+│   ├── interface/mcp/              # MCP server built with @modelcontextprotocol/sdk
+│   └── data/icon-catalog.json      # Remix Icon metadata (retained from the upstream project)
+├── tests/                          # Vitest suites covering parser and use case behaviour
+├── package.json                    # pnpm-friendly manifest and scripts
+└── tsconfig.json                   # Strict TypeScript configuration with Node typings
 ```
 
 ## Implementation Notes
 
-- Keywords are tokenised using Unicode-aware boundaries and normalised to lowercase.
-- An inverted index maps each token to the icons containing it; prefix expansion provides basic fuzzy matching without external libraries.
-- Results are scored by keyword coverage (exact matches weighted higher) and sorted deterministically.
-- Server responses follow MCP tool semantics and are emitted with `Content-Length` headers for compatibility.
+- Keywords are parsed with Unicode-aware boundaries, deduplicated, and sentences are rejected to guarantee keyword-only inputs.
+- FlexSearch indexes icon names, tags, usage, and categories; field weights plus token matches drive deterministic scores.
+- The application layer combines parser validation, repository queries, and response formatting so the interface only handles transport concerns.
+- MCP responses include natural-language guidance and machine-readable matches so LLM clients can choose exactly one icon.
 
 ## Development Scripts
 
 ```bash
-npm run build   # Type-checks the project
-npm run lint    # Biome check (no writes)
-npm run test    # Run existing Vitest suite
-
-# With pnpm you can run Biome directly. The shim in this repo rewrites
-# `--write` to Biome's supported `--apply` flag so legacy commands keep working.
-pnpm exec biome check --write
+pnpm typecheck   # Strict TypeScript check (tsc --noEmit)
+pnpm test        # Run Vitest suites
+pnpm exec biome check --write --unsafe   # Format + fix code with Biome
 ```
 
 ## License
