@@ -1,6 +1,3 @@
-import { startMcpServer } from "./interface/mcp/icon-keyword-server";
+import { runCli } from "./cli/run";
 
-startMcpServer().catch((error) => {
-  console.error("Failed to start MCP server", error);
-  process.exit(1);
-});
+void runCli();
