@@ -1,116 +1,96 @@
 # Remix Icon MCP ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
-
 [English](README.md) | 简体中文
 
-基于 Cloudflare Workers 构建的强大图标搜索和推荐服务，通过先进的语义匹配算法提供智能图标发现功能。
+一个轻量级的 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）服务器：用户提供简洁的图标关键词（最多 20 个），服务器即返回最相关的 5 个 Remix Icon 名称与元数据——采用 Clean Architecture 架构与 FlexSearch 本地搜索。
 
-## 功能特点
+## 特性
 
-- **智能图标搜索**：基于自然语言描述查找图标，使用多重相似度算法
-- **多语言支持**：针对中英文输入进行了优化
-- **分类管理**：按类别浏览和搜索图标
-- **高级匹配**：使用多种算法实现更好的搜索结果：
-  - Jaccard 相似度
-  - N-gram 匹配
-  - 分类匹配
-  - 精确匹配
-  - Levenshtein 距离
-  - 名称匹配
-  - 标签匹配
-- **倒排索引**：使用倒排索引进行快速初步搜索
-- **缓存机制**：采用 LRU 缓存提升性能
+- **智能关键词输入**：支持最多 20 个逗号分隔的关键词，同时自动拒绝自然语言描述以确保最佳搜索质量。
+- **固定返回前 5 结果**：始终返回最相关的 5 个图标，帮助用户聚焦决策。
+- **FlexSearch 索引**：使用 FlexSearch v0.8 文档索引在本地构建高速检索。
+- **Clean Architecture 分层**：领域、应用、基础设施、接口层各自独立，易于测试与扩展。
+- **CLI 就绪**：可通过 `npx mcp-server-remix-icon` 作为独立 CLI 工具运行，或集成到 MCP 客户端。
+- **LLM 友好的输出**：返回排序候选、命中的 token，并提示模型从结果中只选择一个图标。
 
-## API 接口
+## 快速开始
 
-### 查找图标
-```typescript
-findIcons(description: string): ResponseContent[]
+### 安装
+
+```bash
+# 全局安装 CLI 工具
+npm install -g mcp-server-remix-icon
+
+# 或使用 npx 直接运行
+npx mcp-server-remix-icon
+
+# 开发环境
+pnpm install
+pnpm typecheck
+pnpm test
 ```
-根据用户描述查找图标，返回相似度最高的前 5 个推荐结果。
 
-### 获取图标分类
-```typescript
-getIconCategories(): ResponseContent[]
-```
-返回所有可用的图标分类列表。
+### 使用
 
-### 按分类查找图标
-```typescript
-findIconsByCategory(description: string, category: string): ResponseContent[]
+通过运行 CLI 工具或 TypeScript 入口启动 MCP 服务器。服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
+
+- `search_icons` – 必填参数 `keywords`（逗号分隔的关键词字符串，最多 20 个）。始终返回前 5 个结果。
+
+### 工具调用示例
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "search_icons",
+    "arguments": {
+      "keywords": "layout, grid, design"
+    }
+  }
+}
 ```
-在指定分类中基于描述搜索图标，返回相似度最高的前 5 个推荐结果。
+
+服务器会返回便于阅读的摘要文本，以及包含最相关的 5 个图标的结构化元数据。
 
 ## 项目结构
 
 ```
 .
-├── src/                   # 源代码目录
-│   ├── index.ts           # 主入口文件
-│   ├── data/              # 数据文件，包括图标目录
-│   ├── domain/            # 领域模型和服务
-│   │   ├── icon/          # 图标领域模型
-│   │   └── search/        # 搜索功能
-│   ├── infrastructure/    # 基础设施组件
-│   │   ├── logging/       # 日志工具
-│   │   └── result/        # 结果处理
-│   └── utils/             # 工具函数
-│       ├── similarity/    # 相似度计算算法
-│       └── text/          # 文本处理工具
-├── tests/                 # 测试文件
-│   ├── integration/       # 集成测试
-│   └── unit/              # 单元测试
-└── wrangler.jsonc         # Cloudflare Workers 配置
+├── bin/
+│   └── run.cjs                     # CLI 入口，用于 npx 执行
+├── src/
+│   ├── cli/                        # CLI 运行器实现
+│   ├── bootstrap/                  # 装配依赖，维持 Clean Architecture 分层
+│   ├── domain/                     # 图标实体与关键词解析器
+│   ├── application/                # 搜索用例，负责校验与排序
+│   ├── infrastructure/search/      # 基于 FlexSearch 的搜索实现
+│   ├── interface/mcp/              # 使用 @modelcontextprotocol/sdk 构建的 MCP 服务器
+│   └── data/icon-catalog.json      # Remix Icon 元数据
+├── tests/                          # Vitest 测试用例
+├── package.json                    # pnpm 脚本配置
+└── tsconfig.json                   # 严格的 TypeScript 配置（含 Node 类型）
 ```
 
-## 技术细节
+## 实现说明
 
-- 基于 Cloudflare Workers 平台构建
-- 使用 LRU 缓存优化性能
-- 实现加权多算法相似度评分
-- 支持中文的字符级和词级匹配
-- 可配置的相似度阈值和权重
-- 使用倒排索引加速初步搜索
+- 关键词解析器支持最多 20 个逗号分隔的关键词，同时在检测到句子式输入时直接拒绝。
+- 增强的检测逻辑能够区分关键词列表（带分隔符）和自然语言句子（空格分隔的短语）。
+- FlexSearch 对图标名称、标签、用途、分类等字段建索引，结合字段权重与 token 命中计算得分。
+- 固定返回前 5 个结果，提供聚焦且相关的匹配结果，无需复杂配置。
+- 应用层组合解析、仓库查询与响应格式化，接口层只负责传输协议。
+- MCP 响应同时提供可读提示与机器可消费的结果，确保 LLM 只选择单个图标。
+- CLI 运行器支持通过 `npx` 或全局安装独立执行，方便集成。
 
-## 性能优化
-
-- 实现 LRU（最近最少使用）缓存策略
-- 最大缓存容量：2000 条
-- 最低相似度阈值：0.08
-- 针对中英文优化的相似度计算
-- 两级搜索策略：倒排索引用于快速初步结果，然后进行详细评分
-
-## 响应格式
-
-所有接口返回的响应格式如下：
-```typescript
-interface ResponseContent {
-    type: 'text';
-    text: string;
-}
-```
-
-## 开发说明
-
-本项目使用 TypeScript 和 Cloudflare Workers 构建。主要功能在继承自 `WorkerEntrypoint` 的 `RemixIconMCP` 类中实现。
-
-### 设置与部署
+## 开发脚本
 
 ```bash
-# 安装依赖
-npm install
-
-# 运行开发服务器
-npm run dev
-
-# 部署到 Cloudflare Workers
-npm run deploy
-
-# 运行测试
-npm run test
+pnpm typecheck   # 类型检查（tsc --noEmit）
+pnpm test        # 运行 Vitest
+pnpm exec biome check --write --unsafe   # 使用 Biome 自动修复格式与 lint
 ```
 
 ## 许可证
 
-[MIT 许可证](LICENSE) 
+[MIT License](LICENSE)

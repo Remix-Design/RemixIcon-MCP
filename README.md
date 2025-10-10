@@ -1,116 +1,96 @@
 # Remix Icon MCP ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
-
 English | [简体中文](README.zh-CN.md)
 
-A powerful icon search and recommendation service built on Cloudflare Workers, providing intelligent icon discovery through advanced semantic matching algorithms.
+A lightweight [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that maps icon-focused keywords directly to Remix Icon metadata. Provide concise keywords (up to 20), receive the top 5 matching icon names and metadata – clean architecture with FlexSearch-powered local search.
 
 ## Features
 
-- **Smart Icon Search**: Find icons based on natural language descriptions using multiple similarity algorithms
-- **Multi-language Support**: Optimized for both English and Chinese text input
-- **Category Management**: Browse and search icons by categories
-- **Advanced Matching**: Uses multiple algorithms for better search results:
-  - Jaccard Similarity
-  - N-gram Matching
-  - Category Matching
-  - Exact Matching
-  - Levenshtein Distance
-  - Name Matching
-  - Tag-based Matching
-- **Inverted Index**: Fast preliminary search using an inverted index
-- **Caching**: LRU caching for improved performance
+- **Smart Keyword Input** – Supports up to 20 comma-separated keywords while rejecting natural-language sentences for optimal search quality.
+- **Fixed Top-5 Results** – Returns exactly 5 most relevant icons for focused decision-making.
+- **FlexSearch-backed Index** – Uses FlexSearch v0.8's document index for high-performance token lookup over the local Remix Icon catalog.
+- **Clean Architecture** – Domain entities, application use cases, infrastructure adapters, and MCP interface remain isolated for easy testing.
+- **CLI Ready** – Can be run as a standalone CLI tool via `npx mcp-server-remix-icon` or integrated into MCP clients.
+- **LLM-ready Responses** – Returns ranked candidates, matched tokens, and explicit guidance instructing the model to choose exactly one icon.
 
-## API Endpoints
+## Quick Start
 
-### Find Icons
-```typescript
-findIcons(description: string): ResponseContent[]
+### Installation
+
+```bash
+# Install as CLI tool globally
+npm install -g mcp-server-remix-icon
+
+# Or run directly with npx
+npx mcp-server-remix-icon
+
+# For development
+pnpm install
+pnpm typecheck
+pnpm test
 ```
-Finds icons based on user description, returns top 5 recommendations with similarity scores.
 
-### Get Icon Categories
-```typescript
-getIconCategories(): ResponseContent[]
-```
-Returns a list of all available icon categories.
+### Usage
 
-### Find Icons by Category
-```typescript
-findIconsByCategory(description: string, category: string): ResponseContent[]
+Launch the MCP server by running the CLI tool or TypeScript entrypoint. The server communicates over stdio using JSON-RPC 2.0 via the official `@modelcontextprotocol/sdk` and exposes a single tool:
+
+- `search_icons` – requires a `keywords` string (comma-separated, up to 20 keywords). Always returns top 5 results.
+
+### Example Tool Call
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "search_icons",
+    "arguments": {
+      "keywords": "layout, grid, design"
+    }
+  }
+}
 ```
-Searches for icons within a specific category based on description, returns top 5 recommendations.
+
+The server returns human-readable summaries plus structured metadata with the top 5 icons that matched the supplied keywords.
 
 ## Project Structure
 
 ```
 .
-├── src/                   # Source code directory
-│   ├── index.ts           # Main entry point
-│   ├── data/              # Data files including icon catalog
-│   ├── domain/            # Domain models and services
-│   │   ├── icon/          # Icon domain models
-│   │   └── search/        # Search functionality
-│   ├── infrastructure/    # Infrastructure components
-│   │   ├── logging/       # Logging utilities
-│   │   └── result/        # Result handling
-│   └── utils/             # Utility functions
-│       ├── similarity/    # Similarity calculation algorithms
-│       └── text/          # Text processing utilities
-├── tests/                 # Test files
-│   ├── integration/       # Integration tests
-│   └── unit/              # Unit tests
-└── wrangler.jsonc         # Cloudflare Workers configuration
+├── bin/
+│   └── run.cjs                     # CLI entry point for npx execution
+├── src/
+│   ├── cli/                        # CLI runner implementation
+│   ├── bootstrap/                  # Dependency wiring for Clean Architecture boundaries
+│   ├── domain/                     # Icon entities and keyword parser
+│   ├── application/                # Search use case orchestrating validation and ranking
+│   ├── infrastructure/search/      # FlexSearch-backed repository implementation
+│   ├── interface/mcp/              # MCP server built with @modelcontextprotocol/sdk
+│   └── data/icon-catalog.json      # Remix Icon metadata (retained from the upstream project)
+├── tests/                          # Vitest suites covering parser and use case behaviour
+├── package.json                    # pnpm-friendly manifest and scripts
+└── tsconfig.json                   # Strict TypeScript configuration with Node typings
 ```
 
-## Technical Details
+## Implementation Notes
 
-- Built on Cloudflare Workers platform
-- Uses LRU caching for performance optimization
-- Implements weighted multi-algorithm similarity scoring
-- Supports both character and word-level matching for Chinese text
-- Configurable similarity thresholds and weights
-- Uses inverted index for faster preliminary search
+- Keywords are parsed with Unicode-aware boundaries, supporting up to 20 comma-separated keywords while rejecting sentence-style inputs.
+- Enhanced detection differentiates between keyword lists (with delimiters) and natural language sentences (space-separated phrases).
+- FlexSearch indexes icon names, tags, usage, and categories; field weights plus token matches drive deterministic scores.
+- Fixed top-5 results provide focused, relevant matches without configuration complexity.
+- The application layer combines parser validation, repository queries, and response formatting so the interface only handles transport concerns.
+- MCP responses include natural-language guidance and machine-readable matches so LLM clients can choose exactly one icon.
+- CLI runner enables standalone execution via `npx` or global installation for easy integration.
 
-## Performance Optimization
-
-- Implements caching with LRU (Least Recently Used) strategy
-- Maximum cache size: 2000 entries
-- Minimum score threshold: 0.08
-- Optimized similarity calculations for both English and Chinese text
-- Two-tier search strategy: inverted index for fast preliminary results, followed by detailed scoring
-
-## Response Format
-
-All endpoints return responses in the following format:
-```typescript
-interface ResponseContent {
-    type: 'text';
-    text: string;
-}
-```
-
-## Development
-
-This project is built using TypeScript and Cloudflare Workers. The main functionality is implemented in the `RemixIconMCP` class which extends `WorkerEntrypoint`.
-
-### Setup and Deployment
+## Development Scripts
 
 ```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Deploy to Cloudflare Workers
-npm run deploy
-
-# Run tests
-npm run test
+pnpm typecheck   # Strict TypeScript check (tsc --noEmit)
+pnpm test        # Run Vitest suites
+pnpm exec biome check --write --unsafe   # Format + fix code with Biome
 ```
 
 ## License
 
-[MIT License](LICENSE) 
+[MIT License](LICENSE)
