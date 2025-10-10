@@ -45,7 +45,6 @@ describe("SearchIconsUseCase", () => {
     useCase = new SearchIconsUseCase({
       repository,
       parser: new KeywordParser(),
-      defaultLimit: 3,
     });
   });
 

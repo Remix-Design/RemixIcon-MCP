@@ -5,12 +5,10 @@ import type { IconSearchRepository } from "../ports/icon-search-repository";
 interface SearchIconsUseCaseDependencies {
   readonly repository: IconSearchRepository;
   readonly parser: KeywordParser;
-  readonly defaultLimit?: number;
 }
 
 interface SearchIconsRequest {
   readonly input: string;
-  readonly limit?: number;
 }
 
 export interface SearchIconsResponse {
@@ -18,42 +16,30 @@ export interface SearchIconsResponse {
   readonly guidance: string;
 }
 
-const DEFAULT_LIMIT = 20;
+const FIXED_LIMIT = 5;
 
 export class SearchIconsUseCase {
   private readonly repository: IconSearchRepository;
   private readonly parser: KeywordParser;
-  private readonly defaultLimit: number;
 
   constructor({
     repository,
     parser,
-    defaultLimit,
   }: SearchIconsUseCaseDependencies) {
     this.repository = repository;
     this.parser = parser;
-    this.defaultLimit = defaultLimit ?? DEFAULT_LIMIT;
   }
 
   async execute({
     input,
-    limit,
   }: SearchIconsRequest): Promise<SearchIconsResponse> {
     const keywords = this.parser.parse(input);
-    const appliedLimit = this.resolveLimit(limit);
-    const matches = await this.repository.search(keywords, appliedLimit);
+    const matches = await this.repository.search(keywords, FIXED_LIMIT);
 
     return {
       matches,
       guidance: this.buildGuidance(matches, keywords),
     };
-  }
-
-  private resolveLimit(limit: number | undefined): number {
-    if (typeof limit === "number" && Number.isFinite(limit)) {
-      return Math.min(Math.max(Math.trunc(limit), 1), 100);
-    }
-    return this.defaultLimit;
   }
 
   private buildGuidance(matches: IconMatch[], keywords: string[]): string {

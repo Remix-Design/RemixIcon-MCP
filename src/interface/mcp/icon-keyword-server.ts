@@ -1,20 +1,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
-import { type ZodRawShape, z } from "zod";
+import { z } from "zod";
 import type { SearchIconsResponse } from "../../application/use-cases/search-icons.usecase";
 import { getSearchIconsUseCase } from "../../bootstrap/search-use-case";
 
 const TOOL_NAME = "search_icons";
 
-const toolInputSchema = {
+// Define input validation schema
+const inputValidationSchema = z.object({
   keywords: z
     .string()
     .min(1, "Provide at least one keyword.")
     .max(200, "Input must stay concise and keyword-only."),
-  limit: z.number().int().min(1).max(100).optional(),
-};
-
-const inputValidator = z.object(toolInputSchema as unknown as ZodRawShape);
+});
 
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
@@ -24,33 +22,24 @@ export async function startMcpServer(): Promise<void> {
 
   const useCase = await getSearchIconsUseCase();
 
-  (
-    server as unknown as {
-      registerTool: (
-        name: string,
-        definition: {
-          inputSchema: unknown;
-          title: string;
-          description: string;
-        },
-        handler: (input: unknown) => Promise<unknown>,
-      ) => void;
-    }
-  ).registerTool(
+  server.registerTool(
     TOOL_NAME,
     {
       title: "Search Remix Icons by keyword",
       description:
-        "Search Remix Icon metadata using comma-separated keywords only. Avoid natural language sentences.",
-      inputSchema: toolInputSchema as unknown as ZodRawShape,
+        "Search Remix Icon metadata using comma-separated keywords (up to 20 keywords). Returns top 5 most relevant icons. Supports both single keywords and keyword lists. Avoid natural language sentences.",
+      inputSchema: {
+        keywords: z
+          .string()
+          .min(1, "Provide at least one keyword.")
+          .max(200, "Input must stay concise and keyword-only.")
+          .describe("Comma-separated keywords to search for icons (e.g., 'summer, sun, beach')"),
+      },
     },
     async (rawInput) => {
       try {
-        const { keywords, limit } = inputValidator.parse(rawInput ?? {}) as {
-          keywords: string;
-          limit?: number;
-        };
-        const result = await useCase.execute({ input: keywords, limit });
+        const { keywords } = inputValidationSchema.parse(rawInput ?? {});
+        const result = await useCase.execute({ input: keywords });
         return buildToolResponse(result);
       } catch (error) {
         const message =
