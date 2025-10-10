@@ -27,15 +27,19 @@ export class KeywordParser {
   }
 
   private containsSentence(raw: string, tokens: string[]): boolean {
-    if (tokens.length >= 6) {
-      return true;
-    }
-
-    const spaceSeparated = raw.trim().split(/\s+/u);
     const hasDelimiter = /[,;\n]/u.test(raw);
+    const spaceSeparated = raw.trim().split(/\s+/u);
     const includesStopWord = tokens.some((token) => STOP_WORDS.has(token));
 
-    if (!hasDelimiter && spaceSeparated.length >= 4) {
+    // If delimiters are present, allow many keywords (up to 20)
+    // This supports comma-separated keyword lists like "summer, sun, beach, ocean"
+    if (hasDelimiter) {
+      return tokens.length > 20 || includesStopWord;
+    }
+
+    // Without delimiters, be more strict to detect sentences
+    // Space-separated input with 4+ words or 6+ tokens is likely a sentence
+    if (spaceSeparated.length >= 4 || tokens.length >= 6) {
       return true;
     }
 

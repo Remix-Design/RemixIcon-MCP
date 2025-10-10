@@ -22,4 +22,55 @@ describe("KeywordParser", () => {
       "Keyword input must be provided as short keywords, not full sentences.",
     );
   });
+
+  it("allows many comma-separated keywords (up to 20)", () => {
+    const parser = new KeywordParser();
+    const result = parser.parse(
+      "summer, sun, beach, ocean, wave, palm, tropical, vacation, hot, sunny",
+    );
+    expect(result).toEqual([
+      "summer",
+      "sun",
+      "beach",
+      "ocean",
+      "wave",
+      "palm",
+      "tropical",
+      "vacation",
+      "hot",
+      "sunny",
+    ]);
+    expect(result.length).toBe(10);
+  });
+
+  it("throws when more than 20 comma-separated keywords are provided", () => {
+    const parser = new KeywordParser();
+    const tooManyKeywords = Array.from({ length: 21 }, (_, i) => `keyword${i}`).join(", ");
+    expect(() => parser.parse(tooManyKeywords)).toThrowError(
+      "Keyword input must be provided as short keywords, not full sentences.",
+    );
+  });
+
+  it("detects sentences without delimiters (4+ space-separated words)", () => {
+    const parser = new KeywordParser();
+    expect(() => parser.parse("find me some layout icons")).toThrowError(
+      "Keyword input must be provided as short keywords, not full sentences.",
+    );
+  });
+
+  it("allows short space-separated keywords (less than 4 words)", () => {
+    const parser = new KeywordParser();
+    expect(parser.parse("home office building")).toEqual([
+      "home",
+      "office",
+      "building",
+    ]);
+  });
+
+  it("detects stop words even with delimiters", () => {
+    const parser = new KeywordParser();
+    expect(() => parser.parse("home, please, office")).toThrowError(
+      "Keyword input must be provided as short keywords, not full sentences.",
+    );
+  });
 });
