@@ -67,8 +67,12 @@ The server returns human-readable summaries plus structured metadata indicating 
 
 ```bash
 npm run build   # Type-checks the project
-npm run lint    # Alias for build (tsc --noEmit)
+npm run lint    # Biome check (no writes)
 npm run test    # Run existing Vitest suite
+
+# With pnpm you can run Biome directly. The shim in this repo rewrites
+# `--write` to Biome's supported `--apply` flag so legacy commands keep working.
+pnpm exec biome check --write
 ```
 
 ## License

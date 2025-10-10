@@ -67,8 +67,12 @@ npm run build
 
 ```bash
 npm run build   # 类型检查
-npm run lint    # 等价于 build（tsc --noEmit）
+npm run lint    # 执行 Biome 检查（不写入）
 npm run test    # 运行现有的 Vitest 测试
+
+# 使用 pnpm 可以直接调用 Biome。仓库内的 shim 会把 `--write`
+# 转换成 Biome 支持的 `--apply`，以保持既有命令兼容。
+pnpm exec biome check --write
 ```
 
 ## 许可证

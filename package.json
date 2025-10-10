@@ -1,35 +1,36 @@
 {
-	"name": "mcp-server-remix-icon",
-	"version": "0.1.0",
-        "description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
-        "main": "src/index.ts",
-        "repository": {
-                "type": "git",
-                "url": "git+https://github.com/FradSer/mcp-server-remix-icon.git"
-        },
-        "keywords": [
-                "remixicon",
-                "mcp",
-                "icons",
-                "keyword-search"
-        ],
-	"author": "Frad LEE <fradser@gmail.com>",
-	"license": "MIT",
-	"bugs": {
-		"url": "https://github.com/FradSer/mcp-server-remix-icon/issues"
-	},
-	"homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
-        "scripts": {
-                "build": "tsc --noEmit",
-                "lint": "biome check .",
-                "format": "biome format --write .",
-                "typecheck": "tsc --noEmit",
-                "test": "vitest"
-        },
-        "devDependencies": {
-                "@biomejs/biome": "^1.8.3",
-                "typescript": "^5.5.2",
-                "vitest": "~2.1.9"
-        },
-        "dependencies": {}
+  "name": "mcp-server-remix-icon",
+  "version": "0.1.0",
+  "description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
+  "main": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FradSer/mcp-server-remix-icon.git"
+  },
+  "keywords": [
+    "remixicon",
+    "mcp",
+    "icons",
+    "keyword-search"
+  ],
+  "author": "Frad LEE <fradser@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/FradSer/mcp-server-remix-icon/issues"
+  },
+  "homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@mcp-server-remix-icon/biome-shim": "file:tooling/biome-shim",
+    "typescript": "^5.5.2",
+    "vitest": "~2.1.9"
+  },
+  "dependencies": {}
 }

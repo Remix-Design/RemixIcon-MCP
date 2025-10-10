@@ -1,0 +1,8 @@
+{
+  "name": "@mcp-server-remix-icon/biome-shim",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "biome": "index.cjs"
+  }
+}
