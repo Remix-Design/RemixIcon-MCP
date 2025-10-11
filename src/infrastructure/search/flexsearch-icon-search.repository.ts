@@ -102,11 +102,22 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
       for (const fieldResult of results) {
         for (const entry of fieldResult.result) {
           const iconId = this.resolveIconId(entry);
-          if (!iconId || !this.iconMap.get(iconId)) {
+          if (!this.isValidIconId(iconId)) {
             continue;
           }
 
-          this.updateScore(scores, iconId, fieldResult.field, keyword);
+          const icon = this.iconMap.get(iconId);
+          if (!icon) {
+            continue;
+          }
+
+          // Type assertions - both are guaranteed to be strings at this point
+          this.updateScore(
+            scores,
+            iconId as string,
+            fieldResult.field as string,
+            keyword,
+          );
         }
       }
     }
@@ -241,5 +252,9 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
     }
 
     return undefined;
+  }
+
+  private isValidIconId(id: string | undefined): id is string {
+    return typeof id === "string" && id.length > 0;
   }
 }
