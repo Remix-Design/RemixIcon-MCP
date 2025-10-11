@@ -140,7 +140,8 @@ The server returns human-readable summaries plus structured metadata with the to
 │   ├── interface/mcp/              # MCP server built with @modelcontextprotocol/sdk
 │   └── data/tags.json              # Remix Icon tags for search functionality
 ├── tests/                          # Vitest suites covering parser and use case behaviour
-├── marketplace.json                # Marketplace metadata for Claude Code plugin discovery
+├── .claude-plugin/
+│   └── marketplace.json            # Marketplace metadata for Claude Code plugin discovery
 ├── package.json                    # pnpm-friendly manifest and scripts
 └── tsconfig.json                   # Strict TypeScript configuration with Node typings
 ```

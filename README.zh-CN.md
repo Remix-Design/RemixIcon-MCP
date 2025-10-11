@@ -140,7 +140,8 @@ mcp-server-remix-icon
 │   ├── interface/mcp/              # 使用 @modelcontextprotocol/sdk 构建的 MCP 服务器
 │   └── data/tags.json              # Remix Icon 搜索标签
 ├── tests/                          # Vitest 测试用例
-├── marketplace.json                # Claude Code 插件发现的 Marketplace 元数据
+├── .claude-plugin/
+│   └── marketplace.json            # Claude Code 插件发现的 Marketplace 元数据
 ├── package.json                    # pnpm 脚本配置
 └── tsconfig.json                   # 严格的 TypeScript 配置（含 Node 类型）
 ```
