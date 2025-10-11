@@ -81,10 +81,19 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
       );
     }
 
+    const scores = this.calculateScores(keywords, limit);
+    const ranked = this.rankResults(scores);
+    return ranked.slice(0, limit);
+  }
+
+  private calculateScores(
+    keywords: string[],
+    limit: number,
+  ): Map<string, { score: number; matched: Set<string> }> {
     const scores = new Map<string, { score: number; matched: Set<string> }>();
 
     for (const keyword of keywords) {
-      const results = this.document.search(keyword, {
+      const results = this.document!.search(keyword, {
         enrich: true,
         limit,
         suggest: true,
@@ -93,42 +102,61 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
       for (const fieldResult of results) {
         for (const entry of fieldResult.result) {
           const iconId = this.resolveIconId(entry);
-          if (!iconId) {
+          if (!iconId || !this.iconMap.get(iconId)) {
             continue;
           }
 
-          const icon = this.iconMap.get(iconId);
-          if (!icon) {
-            continue;
-          }
-
-          const current = scores.get(iconId) ?? {
-            score: 0,
-            matched: new Set<string>(),
-          };
-
-          current.score +=
-            FIELD_WEIGHTS[fieldResult.field as keyof typeof FIELD_WEIGHTS] ?? 1;
-
-          const tokens = this.tokenIndex.get(iconId);
-          if (tokens) {
-            for (const token of tokens) {
-              if (token === keyword) {
-                current.score += EXACT_TOKEN_MATCH_BONUS;
-                current.matched.add(token);
-              } else if (token.startsWith(keyword)) {
-                current.score += PREFIX_TOKEN_MATCH_BONUS;
-                current.matched.add(token);
-              }
-            }
-          }
-
-          scores.set(iconId, current);
+          this.updateScore(scores, iconId, fieldResult.field, keyword);
         }
       }
     }
 
-    const ranked = Array.from(scores.entries())
+    return scores;
+  }
+
+  private updateScore(
+    scores: Map<string, { score: number; matched: Set<string> }>,
+    iconId: string,
+    field: string,
+    keyword: string,
+  ): void {
+    const current = scores.get(iconId) ?? {
+      score: 0,
+      matched: new Set<string>(),
+    };
+
+    current.score +=
+      FIELD_WEIGHTS[field as keyof typeof FIELD_WEIGHTS] ?? 1;
+
+    this.applyTokenMatching(current, iconId, keyword);
+    scores.set(iconId, current);
+  }
+
+  private applyTokenMatching(
+    scoreData: { score: number; matched: Set<string> },
+    iconId: string,
+    keyword: string,
+  ): void {
+    const tokens = this.tokenIndex.get(iconId);
+    if (!tokens) {
+      return;
+    }
+
+    for (const token of tokens) {
+      if (token === keyword) {
+        scoreData.score += EXACT_TOKEN_MATCH_BONUS;
+        scoreData.matched.add(token);
+      } else if (token.startsWith(keyword)) {
+        scoreData.score += PREFIX_TOKEN_MATCH_BONUS;
+        scoreData.matched.add(token);
+      }
+    }
+  }
+
+  private rankResults(
+    scores: Map<string, { score: number; matched: Set<string> }>,
+  ): IconMatch[] {
+    return Array.from(scores.entries())
       .map(([id, value]) => {
         const icon = this.iconMap.get(id);
         if (!icon) {
@@ -149,8 +177,6 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
         }
         return a.icon.name.localeCompare(b.icon.name);
       });
-
-    return ranked.slice(0, limit);
   }
 
   private buildTokens(icon: IconMetadata): Set<string> {
