@@ -64,6 +64,32 @@ To use this server with Claude Desktop, add the following configuration to your 
 
 After saving the configuration file, completely quit and restart Claude Desktop for the changes to take effect.
 
+#### Claude Code Configuration
+
+To use this server with Claude Code, add the following configuration to your project's `.claude/settings.json`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "remix-icon": {
+        "command": "npx",
+        "args": ["-y", "mcp-server-remix-icon"]
+      }
+    }
+  }
+}
+```
+
+Alternatively, you can use the `.mcp.json` file included in this repository:
+
+```bash
+# Copy .mcp.json to your Claude Code project's .claude directory
+cp .mcp.json /path/to/your/project/.claude/
+```
+
+After adding the configuration, restart Claude Code for the changes to take effect.
+
 #### Available Tools
 
 The server communicates over stdio using JSON-RPC 2.0 via the official `@modelcontextprotocol/sdk` and exposes a single tool:

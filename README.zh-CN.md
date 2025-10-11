@@ -64,6 +64,32 @@ mcp-server-remix-icon
 
 保存配置文件后，完全退出并重启 Claude Desktop 以使更改生效。
 
+#### Claude Code 配置
+
+要在 Claude Code 中使用此服务器，请将以下配置添加到项目的 `.claude/settings.json`：
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "remix-icon": {
+        "command": "npx",
+        "args": ["-y", "mcp-server-remix-icon"]
+      }
+    }
+  }
+}
+```
+
+或者，你可以使用本仓库中包含的 `.mcp.json` 文件：
+
+```bash
+# 将 .mcp.json 复制到你的 Claude Code 项目的 .claude 目录
+cp .mcp.json /path/to/your/project/.claude/
+```
+
+添加配置后，重启 Claude Code 以使更改生效。
+
 #### 可用工具
 
 服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：

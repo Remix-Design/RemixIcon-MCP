@@ -1,0 +1,6 @@
+{
+  "remix-icon": {
+    "command": "npx",
+    "args": ["-y", "mcp-server-remix-icon"]
+  }
+}
