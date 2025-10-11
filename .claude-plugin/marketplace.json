@@ -1,0 +1,46 @@
+{
+  "name": "remix-icon-mcp-server",
+  "owner": {
+    "name": "FradSer",
+    "url": "https://github.com/FradSer"
+  },
+  "metadata": {
+    "description": "Official Remix Icon MCP server providing intelligent icon search and discovery with semantic matching",
+    "version": "0.3.2"
+  },
+  "plugins": [
+    {
+      "name": "remix-icon-mcp-server",
+      "source": "./",
+      "description": "A Model Context Protocol server for Remix Icon search with FlexSearch-powered semantic matching. Maps icon-focused keywords to Remix Icon metadata, providing top 5 most relevant icons with clean architecture and local search.",
+      "version": "0.3.2",
+      "author": {
+        "name": "FradSer",
+        "url": "https://github.com/FradSer"
+      },
+      "homepage": "https://github.com/FradSer/mcp-server-remix-icon",
+      "repository": "https://github.com/FradSer/mcp-server-remix-icon",
+      "license": "MIT",
+      "keywords": [
+        "mcp",
+        "remix-icon",
+        "icons",
+        "search",
+        "design",
+        "ui",
+        "flexsearch",
+        "semantic-search",
+        "icon-search"
+      ],
+      "category": "productivity",
+      "strict": false,
+      "mcpServers": {
+        "remix-icon": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "mcp-server-remix-icon"]
+        }
+      }
+    }
+  ]
+}

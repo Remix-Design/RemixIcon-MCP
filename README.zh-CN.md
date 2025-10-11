@@ -64,6 +64,43 @@ mcp-server-remix-icon
 
 保存配置文件后，完全退出并重启 Claude Desktop 以使更改生效。
 
+#### Claude Code 配置
+
+**添加为 Marketplace 插件**
+
+直接从 GitHub 安装为 marketplace 插件：
+
+```bash
+# 在 Claude Code 中，添加 marketplace
+/plugin marketplace add FradSer/mcp-server-remix-icon
+```
+
+这将提供：
+- 自动安装和更新
+- 完整的插件元数据和版本管理
+- 用于发现的关键词和分类
+- 丰富的描述和作者信息
+- 与 Claude Code 插件生态系统的完整集成
+
+**手动配置（备选）**
+
+或者，在项目的 `.claude/settings.json` 中添加以下配置：
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "remix-icon": {
+        "command": "npx",
+        "args": ["-y", "mcp-server-remix-icon"]
+      }
+    }
+  }
+}
+```
+
+添加配置后，重启 Claude Code 以使更改生效。
+
 #### 可用工具
 
 服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
@@ -103,6 +140,8 @@ mcp-server-remix-icon
 │   ├── interface/mcp/              # 使用 @modelcontextprotocol/sdk 构建的 MCP 服务器
 │   └── data/tags.json              # Remix Icon 搜索标签
 ├── tests/                          # Vitest 测试用例
+├── .claude-plugin/
+│   └── marketplace.json            # Claude Code 插件发现的 Marketplace 元数据
 ├── package.json                    # pnpm 脚本配置
 └── tsconfig.json                   # 严格的 TypeScript 配置（含 Node 类型）
 ```
