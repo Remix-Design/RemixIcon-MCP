@@ -32,7 +32,41 @@ pnpm test
 
 ### Usage
 
-Launch the MCP server by running the CLI tool or TypeScript entrypoint. The server communicates over stdio using JSON-RPC 2.0 via the official `@modelcontextprotocol/sdk` and exposes a single tool:
+#### As a Standalone CLI Tool
+
+You can run the MCP server directly via stdio for testing or integration:
+
+```bash
+# Run with npx
+npx mcp-server-remix-icon
+
+# Or if installed globally
+mcp-server-remix-icon
+```
+
+#### Claude Desktop Configuration
+
+To use this server with Claude Desktop, add the following configuration to your `claude_desktop_config.json`:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "remix-icon": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-remix-icon"]
+    }
+  }
+}
+```
+
+After saving the configuration file, completely quit and restart Claude Desktop for the changes to take effect.
+
+#### Available Tools
+
+The server communicates over stdio using JSON-RPC 2.0 via the official `@modelcontextprotocol/sdk` and exposes a single tool:
 
 - `search_icons` – requires a `keywords` string (comma-separated, up to 20 keywords). Always returns top 5 results.
 

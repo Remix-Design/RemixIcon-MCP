@@ -56,10 +56,10 @@ describe("SearchIconsUseCase", () => {
     );
   });
 
-  it("returns guidance instructing the LLM to pick one icon when multiple matches exist", async () => {
+  it("returns empty guidance when multiple matches exist", async () => {
     const response = await useCase.execute({ input: "layout, design" });
     expect(response.matches.length).toBeGreaterThan(1);
-    expect(response.guidance).toContain("Choose exactly one icon");
+    expect(response.guidance).toBe("");
   });
 
   it("returns empty matches and specific guidance when no keywords match", async () => {

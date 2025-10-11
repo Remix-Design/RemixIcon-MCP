@@ -32,9 +32,43 @@ pnpm test
 
 ### 使用
 
-通过运行 CLI 工具或 TypeScript 入口启动 MCP 服务器。服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
+#### 作为独立 CLI 工具
 
-- `search_icons` – 必填参数 `keywords`（逗号分隔的关键词字符串，最多 20 个）。始终返回前 5 个结果。
+你可以通过 stdio 直接运行 MCP 服务器进行测试或集成：
+
+```bash
+# 使用 npx 运行
+npx mcp-server-remix-icon
+
+# 或全局安装后运行
+mcp-server-remix-icon
+```
+
+#### Claude Desktop 配置
+
+要在 Claude Desktop 中使用此服务器，请将以下配置添加到 `claude_desktop_config.json`：
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "remix-icon": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-remix-icon"]
+    }
+  }
+}
+```
+
+保存配置文件后，完全退出并重启 Claude Desktop 以使更改生效。
+
+#### 可用工具
+
+服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
+
+- `search_icons` – 必填参数 `keywords`（逗号分隔的关键词字符串,最多 20 个）。始终返回前 5 个结果。
 
 ### 工具调用示例
 
