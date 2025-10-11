@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [0.3.2] - 2025-10-11
+## [0.3.2] - 2025-10-12
 
 ### Added
 - Claude Desktop configuration documentation in README
@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved README structure with clearer usage sections
   - Separated standalone CLI and Claude Desktop configuration
   - Enhanced documentation for both English and Chinese versions
+
+### Fixed
+- Simplified MCP server output format for better user experience
+  - Removed verbose guidance text from multiple icon matches
+  - Changed output to show only icon names and scores
+  - Added clear "Select the most suitable icon." prompt for better UX
+  - Removed token information from output for cleaner presentation
 
 
 ## [0.3.1] - 2025-10-11
