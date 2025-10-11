@@ -66,7 +66,25 @@ After saving the configuration file, completely quit and restart Claude Desktop 
 
 #### Claude Code Configuration
 
-To use this server with Claude Code, add the following configuration to your project's `.claude/settings.json`:
+**Add as Marketplace Plugin**
+
+Install directly from GitHub as a marketplace plugin:
+
+```bash
+# In Claude Code, add the marketplace
+/plugin marketplace add FradSer/mcp-server-remix-icon
+```
+
+This provides:
+- Automatic installation and updates
+- Complete plugin metadata and versioning
+- Keywords and categorization for discovery
+- Rich descriptions and author information
+- Full integration with Claude Code's plugin ecosystem
+
+**Manual Configuration (Alternative)**
+
+Alternatively, add the following to your project's `.claude/settings.json`:
 
 ```json
 {
@@ -79,13 +97,6 @@ To use this server with Claude Code, add the following configuration to your pro
     }
   }
 }
-```
-
-Alternatively, you can use the `.mcp.json` file included in this repository:
-
-```bash
-# Copy .mcp.json to your Claude Code project's .claude directory
-cp .mcp.json /path/to/your/project/.claude/
 ```
 
 After adding the configuration, restart Claude Code for the changes to take effect.
@@ -129,6 +140,7 @@ The server returns human-readable summaries plus structured metadata with the to
 │   ├── interface/mcp/              # MCP server built with @modelcontextprotocol/sdk
 │   └── data/tags.json              # Remix Icon tags for search functionality
 ├── tests/                          # Vitest suites covering parser and use case behaviour
+├── marketplace.json                # Marketplace metadata for Claude Code plugin discovery
 ├── package.json                    # pnpm-friendly manifest and scripts
 └── tsconfig.json                   # Strict TypeScript configuration with Node typings
 ```
