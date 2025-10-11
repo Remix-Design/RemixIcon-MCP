@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.3.1] - 2025-10-11
+
+### Fixed
+- Added npm publish configuration for better package distribution
+  - Configured `files` field to include only necessary published files
+  - Set Node.js engine requirement to >=18.0.0
+  - Extended package keywords for better discoverability
+- Fixed type safety issue with optional chaining in FlexSearch icon search repository
+- Moved `tsx` from devDependencies to dependencies for proper runtime execution
+
+
 ## [0.2.0] - 2025-10-11
 
 ### Added
@@ -96,5 +107,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-language support optimization
   - English and Chinese text processing
 
+[0.3.1]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.2.0...v0.3.1
 [0.2.0]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.0.1...v0.1.0
