@@ -1,4 +1,4 @@
-const WORD_BOUNDARY = /[\p{P}\p{S}\s]+/u;
+import { WORD_BOUNDARY } from "../constants/text-processing";
 
 export class KeywordParser {
   parse(raw: string): string[] {

@@ -1,8 +1,8 @@
 import FlexSearch, { type Document } from "flexsearch";
 import type { IconSearchRepository } from "../../application/ports/icon-search-repository";
 import type { IconMatch, IconMetadata } from "../../domain/entities/icon";
+import { WORD_BOUNDARY } from "../../domain/constants/text-processing";
 
-const WORD_BOUNDARY = /[\p{P}\p{S}\s]+/u;
 const FIELD_WEIGHTS: Record<string, number> = {
   name: 5,
   baseName: 4,
