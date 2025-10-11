@@ -6,12 +6,14 @@ import { getSearchIconsUseCase } from "../../bootstrap/search-use-case";
 
 const TOOL_NAME = "search_icons";
 
-// Define input validation schema
+// Define input validation schema once
+const keywordsSchema = z
+  .string()
+  .min(1, "Provide at least one keyword.")
+  .max(200, "Input must stay concise and keyword-only.");
+
 const inputValidationSchema = z.object({
-  keywords: z
-    .string()
-    .min(1, "Provide at least one keyword.")
-    .max(200, "Input must stay concise and keyword-only."),
+  keywords: keywordsSchema,
 });
 
 export async function startMcpServer(): Promise<void> {
@@ -29,11 +31,9 @@ export async function startMcpServer(): Promise<void> {
       description:
         "Search Remix Icon metadata using comma-separated keywords (up to 20 keywords). Returns top 5 most relevant icons. Supports both single keywords and keyword lists. Avoid natural language sentences.",
       inputSchema: {
-        keywords: z
-          .string()
-          .min(1, "Provide at least one keyword.")
-          .max(200, "Input must stay concise and keyword-only.")
-          .describe("Comma-separated keywords to search for icons (e.g., 'summer, sun, beach')"),
+        keywords: keywordsSchema.describe(
+          "Comma-separated keywords to search for icons (e.g., 'summer, sun, beach')",
+        ),
       },
     },
     async (rawInput) => {
