@@ -62,15 +62,25 @@ export async function startMcpServer(): Promise<void> {
 }
 
 function buildToolResponse(result: SearchIconsResponse) {
-  const lines: string[] = [result.guidance];
+  const lines: string[] = [];
 
-  if (result.matches.length > 0) {
+  // Add guidance if present (for error cases or single match)
+  if (result.guidance) {
+    lines.push(result.guidance);
+  }
+
+  // Add icon list for multiple matches
+  if (result.matches.length > 1) {
     lines.push("Top icon candidates:");
     for (const match of result.matches) {
       lines.push(
-        `- ${match.icon.name} (score ${match.score.toFixed(2)}): tokens [${match.matchedTokens.join(", ")}]`,
+        `- ${match.icon.name} (score ${match.score.toFixed(2)})`,
       );
     }
+    lines.push("");
+    lines.push("Select the most suitable icon.");
+  } else if (result.matches.length === 1) {
+    // Single match is already handled by guidance
   }
 
   return {
