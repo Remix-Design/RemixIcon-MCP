@@ -53,7 +53,7 @@ This is a **Cloudflare Workers MCP (Model Context Protocol) server** that provid
 - Multiple similarity algorithms implementation
 
 ### Data Flow
-1. Icon catalog loaded from `src/data/icon-catalog.json`
+1. Icon tags loaded from `src/data/tags.json`
 2. Inverted index built on service initialization
 3. Search requests processed through query enhancement → index search → detailed scoring → caching
 4. Results returned with relevance scores and categories

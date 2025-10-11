@@ -1,4 +1,9 @@
-const WORD_BOUNDARY = /[\p{P}\p{S}\s]+/u;
+import { WORD_BOUNDARY } from "../constants/text-processing";
+
+// Sentence detection thresholds
+const MAX_KEYWORDS_WITH_DELIMITERS = 20;
+const MAX_SPACE_SEPARATED_WORDS = 4;
+const MAX_TOKENS_WITHOUT_DELIMITERS = 6;
 
 export class KeywordParser {
   parse(raw: string): string[] {
@@ -31,19 +36,23 @@ export class KeywordParser {
     const spaceSeparated = raw.trim().split(/\s+/u);
     const includesStopWord = tokens.some((token) => STOP_WORDS.has(token));
 
+    // Early return: stop words indicate a sentence
+    if (includesStopWord) {
+      return true;
+    }
+
     // If delimiters are present, allow many keywords (up to 20)
     // This supports comma-separated keyword lists like "summer, sun, beach, ocean"
     if (hasDelimiter) {
-      return tokens.length > 20 || includesStopWord;
+      return tokens.length > MAX_KEYWORDS_WITH_DELIMITERS;
     }
 
     // Without delimiters, be more strict to detect sentences
     // Space-separated input with 4+ words or 6+ tokens is likely a sentence
-    if (spaceSeparated.length >= 4 || tokens.length >= 6) {
-      return true;
-    }
-
-    return includesStopWord;
+    return (
+      spaceSeparated.length >= MAX_SPACE_SEPARATED_WORDS ||
+      tokens.length >= MAX_TOKENS_WITHOUT_DELIMITERS
+    );
   }
 }
 
