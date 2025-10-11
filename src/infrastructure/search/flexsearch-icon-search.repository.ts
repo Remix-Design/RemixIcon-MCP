@@ -93,11 +93,11 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
     const scores = new Map<string, { score: number; matched: Set<string> }>();
 
     for (const keyword of keywords) {
-      const results = this.document!.search(keyword, {
+      const results = this.document?.search(keyword, {
         enrich: true,
         limit,
         suggest: true,
-      });
+      }) ?? [];
 
       for (const fieldResult of results) {
         for (const entry of fieldResult.result) {

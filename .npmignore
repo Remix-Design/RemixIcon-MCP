@@ -1,0 +1,47 @@
+# Source files
+*.ts
+!*.d.ts
+tsconfig.json
+vitest.config.mts
+
+# Tests
+tests/
+*.test.ts
+*.spec.ts
+
+# Development files
+.editorconfig
+.gitignore
+.git/
+.vscode/
+.cursor/
+
+# Documentation (keep only essential ones)
+AGENTS.md
+CLAUDE.md
+CHANGELOG.md
+
+# CI/CD
+.github/
+
+# Logs
+logs
+*.log
+
+# Environment
+.env
+.env.*
+.dev.vars
+.wrangler/
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Coverage
+coverage/
+.nyc_output/
