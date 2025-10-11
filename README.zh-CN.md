@@ -67,7 +67,7 @@ pnpm test
 │   ├── application/                # 搜索用例，负责校验与排序
 │   ├── infrastructure/search/      # 基于 FlexSearch 的搜索实现
 │   ├── interface/mcp/              # 使用 @modelcontextprotocol/sdk 构建的 MCP 服务器
-│   └── data/icon-catalog.json      # Remix Icon 元数据
+│   └── data/tags.json              # Remix Icon 搜索标签
 ├── tests/                          # Vitest 测试用例
 ├── package.json                    # pnpm 脚本配置
 └── tsconfig.json                   # 严格的 TypeScript 配置（含 Node 类型）

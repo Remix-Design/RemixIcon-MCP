@@ -67,7 +67,7 @@ The server returns human-readable summaries plus structured metadata with the to
 │   ├── application/                # Search use case orchestrating validation and ranking
 │   ├── infrastructure/search/      # FlexSearch-backed repository implementation
 │   ├── interface/mcp/              # MCP server built with @modelcontextprotocol/sdk
-│   └── data/icon-catalog.json      # Remix Icon metadata (retained from the upstream project)
+│   └── data/tags.json              # Remix Icon tags for search functionality
 ├── tests/                          # Vitest suites covering parser and use case behaviour
 ├── package.json                    # pnpm-friendly manifest and scripts
 └── tsconfig.json                   # Strict TypeScript configuration with Node typings

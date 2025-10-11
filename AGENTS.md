@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Architecture & Dependencies
-This MCP server follows strict Clean Architecture: `interface/` only handles transport, `infrastructure/` adapts data sources, `application/` orchestrates use cases, and `domain/` owns business rules. Respect the dependency rule by importing inward only; new adapters belong under `infrastructure/` and must receive dependencies via constructors. `bootstrap/` wires modules together, so extend it when registering additional repositories or validators. The shared icon catalog lives in `data/icon-catalog.json`; treat it as read-only at runtime.
+This MCP server follows strict Clean Architecture: `interface/` only handles transport, `infrastructure/` adapts data sources, `application/` orchestrates use cases, and `domain/` owns business rules. Respect the dependency rule by importing inward only; new adapters belong under `infrastructure/` and must receive dependencies via constructors. `bootstrap/` wires modules together, so extend it when registering additional repositories or validators. The shared icon tags live in `data/tags.json`; treat it as read-only at runtime.
 
 ## Project Structure & Module Organization
 Source lives in `src/` with TypeScript entrypoint `index.ts`. Tests mirror the layers inside `tests/application/` and `tests/domain/`, and any infrastructure tests should sit under `tests/infrastructure/` when added. Keep assets and fixtures co-located with their layer to avoid leaking implementation details across boundaries.
