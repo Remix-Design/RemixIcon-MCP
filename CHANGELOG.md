@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.3.2] - 2025-10-11
+
+### Added
+- Claude Desktop configuration documentation in README
+  - Added detailed setup instructions for macOS and Windows
+  - Included example configuration for `claude_desktop_config.json`
+  - Added instructions to restart Claude Desktop after configuration
+
+### Changed
+- Improved README structure with clearer usage sections
+  - Separated standalone CLI and Claude Desktop configuration
+  - Enhanced documentation for both English and Chinese versions
+
+
 ## [0.3.1] - 2025-10-11
 
 ### Fixed
