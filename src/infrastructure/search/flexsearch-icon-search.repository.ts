@@ -12,6 +12,10 @@ const FIELD_WEIGHTS: Record<string, number> = {
   style: 1,
 };
 
+// Token scoring constants
+const EXACT_TOKEN_MATCH_BONUS = 5;
+const PREFIX_TOKEN_MATCH_BONUS = 2;
+
 interface FlexSearchIconSearchRepositoryOptions {
   readonly icons: readonly IconMetadata[];
 }
@@ -110,10 +114,10 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
           if (tokens) {
             for (const token of tokens) {
               if (token === keyword) {
-                current.score += 5;
+                current.score += EXACT_TOKEN_MATCH_BONUS;
                 current.matched.add(token);
               } else if (token.startsWith(keyword)) {
-                current.score += 2;
+                current.score += PREFIX_TOKEN_MATCH_BONUS;
                 current.matched.add(token);
               }
             }
