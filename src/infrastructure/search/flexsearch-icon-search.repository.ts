@@ -4,9 +4,9 @@ import type { IconMatch, IconMetadata } from "../../domain/entities/icon";
 import { WORD_BOUNDARY } from "../../domain/constants/text-processing";
 
 const FIELD_WEIGHTS: Record<string, number> = {
-  name: 5,
-  baseName: 4,
-  tags: 3,
+  baseName: 8,
+  tags: 5,
+  name: 3,
   usage: 2,
   category: 1,
   style: 1,
