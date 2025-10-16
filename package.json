@@ -1,59 +1,59 @@
 {
-  "name": "mcp-server-remix-icon",
-  "version": "0.4.0",
-  "description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
-  "main": "src/index.ts",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/FradSer/mcp-server-remix-icon.git"
-  },
-  "keywords": [
-    "remixicon",
-    "mcp",
-    "mcp-server",
-    "icons",
-    "icon-search",
-    "keyword-search",
-    "model-context-protocol",
-    "ai",
-    "llm"
-  ],
-  "author": "Frad LEE <fradser@gmail.com>",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/FradSer/mcp-server-remix-icon/issues"
-  },
-  "homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
-  "bin": {
-    "mcp-server-remix-icon": "bin/run.cjs"
-  },
-  "files": [
-    "bin/",
-    "src/",
-    "README.md",
-    "README.zh-CN.md",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "scripts": {
-    "build": "tsc --noEmit",
-    "lint": "biome lint --write",
-    "format": "biome format --write",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.2.5",
-    "@types/node": "^24.7.1",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.20.0",
-    "flexsearch": "^0.8.212",
-    "tsx": "^4.20.6",
-    "zod": "^3.25.76"
-  }
+	"name": "RemixIcon-MCP",
+	"version": "1.0.0",
+	"description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
+	"main": "src/index.ts",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Remix-Design/RemixIcon-MCP.git"
+	},
+	"keywords": [
+		"remixicon",
+		"mcp",
+		"mcp-server",
+		"icons",
+		"icon-search",
+		"keyword-search",
+		"model-context-protocol",
+		"ai",
+		"llm"
+	],
+	"author": "Frad LEE <fradser@gmail.com>",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/Remix-Design/RemixIcon-MCP/issues"
+	},
+	"homepage": "https://github.com/Remix-Design/RemixIcon-MCP#readme",
+	"bin": {
+		"RemixIcon-MCP": "bin/run.cjs"
+	},
+	"files": [
+		"bin/",
+		"src/",
+		"README.md",
+		"README.zh-CN.md",
+		"LICENSE"
+	],
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"scripts": {
+		"build": "tsc --noEmit",
+		"lint": "biome lint --write",
+		"format": "biome format --write",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.5",
+		"@types/node": "^24.7.1",
+		"typescript": "^5.9.3",
+		"vitest": "^3.2.4"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.20.0",
+		"flexsearch": "^0.8.212",
+		"tsx": "^4.20.6",
+		"zod": "^3.25.76"
+	}
 }

@@ -1,4 +1,6 @@
-# Remix Icon MCP ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
+# RemixIcon MCP
+
+![NPM Version](https://img.shields.io/npm/v/RemixIcon-MCP) ![NPM License](https://img.shields.io/npm/l/RemixIcon-MCP) ![NPM Downloads](https://img.shields.io/npm/dt/RemixIcon-MCP)
 
 [English](README.md) | 简体中文
 
@@ -10,7 +12,7 @@
 - **固定返回前 5 结果**：始终返回最相关的 5 个图标，帮助用户聚焦决策。
 - **FlexSearch 索引**：使用 FlexSearch v0.8 文档索引在本地构建高速检索。
 - **Clean Architecture 分层**：领域、应用、基础设施、接口层各自独立，易于测试与扩展。
-- **CLI 就绪**：可通过 `npx mcp-server-remix-icon` 作为独立 CLI 工具运行，或集成到 MCP 客户端。
+- **CLI 就绪**：可通过 `npx RemixIcon-MCP` 作为独立 CLI 工具运行，或集成到 MCP 客户端。
 - **LLM 友好的输出**：返回排序候选、命中的 token，并提示模型从结果中只选择一个图标。
 
 ## 快速开始
@@ -19,10 +21,10 @@
 
 ```bash
 # 全局安装 CLI 工具
-npm install -g mcp-server-remix-icon
+npm install -g RemixIcon-MCP
 
 # 或使用 npx 直接运行
-npx mcp-server-remix-icon
+npx RemixIcon-MCP
 
 # 开发环境
 pnpm install
@@ -38,10 +40,10 @@ pnpm test
 
 ```bash
 # 使用 npx 运行
-npx mcp-server-remix-icon
+npx RemixIcon-MCP
 
 # 或全局安装后运行
-mcp-server-remix-icon
+RemixIcon-MCP
 ```
 
 #### Claude Desktop 配置
@@ -53,13 +55,12 @@ mcp-server-remix-icon
 
 ```json
 {
-  "mcpServers": {
-    "remix-icon": {
-      "command": "npx",
-      "args": ["-y", "mcp-server-remix-icon"]
-    }
-  }
-}
+      "mcpServers": {
+        "remix-icon": {
+          "command": "npx",
+          "args": ["-y", "RemixIcon-MCP"]
+        }
+      }}
 ```
 
 保存配置文件后，完全退出并重启 Claude Desktop 以使更改生效。
@@ -72,7 +73,7 @@ mcp-server-remix-icon
 
 ```bash
 # 在 Claude Code 中，添加 marketplace
-/plugin marketplace add FradSer/mcp-server-remix-icon
+/plugin marketplace add Remix-Design/RemixIcon-MCP
 ```
 
 这将提供：
@@ -92,7 +93,7 @@ mcp-server-remix-icon
     "servers": {
       "remix-icon": {
         "command": "npx",
-        "args": ["-y", "mcp-server-remix-icon"]
+        "args": ["-y", "RemixIcon-MCP"]
       }
     }
   }
