@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/remix-design-remixicon-mcp-badge.png)](https://mseep.ai/app/remix-design-remixicon-mcp)
+
 # Remix Icon MCP ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
 English | [简体中文](README.zh-CN.md)
