@@ -1,11 +1,11 @@
 {
-  "name": "mcp-server-remix-icon",
+  "name": "RemixIcon-MCP",
   "version": "0.4.0",
   "description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
   "main": "src/index.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FradSer/mcp-server-remix-icon.git"
+    "url": "git+https://github.com/Remix-Design/RemixIcon-MCP.git"
   },
   "keywords": [
     "remixicon",
@@ -21,11 +21,11 @@
   "author": "Frad LEE <fradser@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/FradSer/mcp-server-remix-icon/issues"
+    "url": "https://github.com/Remix-Design/RemixIcon-MCP/issues"
   },
-  "homepage": "https://github.com/FradSer/mcp-server-remix-icon#readme",
+  "homepage": "https://github.com/Remix-Design/RemixIcon-MCP#readme",
   "bin": {
-    "mcp-server-remix-icon": "bin/run.cjs"
+    "RemixIcon-MCP": "bin/run.cjs"
   },
   "files": [
     "bin/",
