@@ -1,6 +1,6 @@
 # RemixIcon MCP
 
-![NPM Version](https://img.shields.io/npm/v/RemixIcon-MCP) ![NPM License](https://img.shields.io/npm/l/RemixIcon-MCP) ![NPM Downloads](https://img.shields.io/npm/dt/RemixIcon-MCP)
+![NPM Version](https://img.shields.io/npm/v/remixicon-mcp) ![NPM License](https://img.shields.io/npm/l/remixicon-mcp) ![NPM Downloads](https://img.shields.io/npm/dt/remixicon-mcp)
 
 English | [简体中文](README.zh-CN.md)
 
@@ -12,7 +12,7 @@ A lightweight [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) s
 - **Fixed Top-5 Results** – Returns exactly 5 most relevant icons for focused decision-making.
 - **FlexSearch-backed Index** – Uses FlexSearch v0.8's document index for high-performance token lookup over the local Remix Icon catalog.
 - **Clean Architecture** – Domain entities, application use cases, infrastructure adapters, and MCP interface remain isolated for easy testing.
-- **CLI Ready** – Can be run as a standalone CLI tool via `npx RemixIcon-MCP` or integrated into MCP clients.
+- **CLI Ready** – Can be run as a standalone CLI tool via `npx remixicon-mcp` or integrated into MCP clients.
 - **LLM-ready Responses** – Returns ranked candidates, matched tokens, and explicit guidance instructing the model to choose exactly one icon.
 
 ## Quick Start
@@ -21,10 +21,10 @@ A lightweight [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) s
 
 ```bash
 # Install as CLI tool globally
-npm install -g RemixIcon-MCP
+npm install -g remixicon-mcp
 
 # Or run directly with npx
-npx RemixIcon-MCP
+npx remixicon-mcp
 
 # For development
 pnpm install
@@ -40,10 +40,10 @@ You can run the MCP server directly via stdio for testing or integration:
 
 ```bash
 # Run with npx
-npx RemixIcon-MCP
+npx remixicon-mcp
 
 # Or if installed globally
-RemixIcon-MCP
+remixicon-mcp
 ```
 
 #### Claude Desktop Configuration
@@ -58,7 +58,7 @@ To use this server with Claude Desktop, add the following configuration to your 
   "mcpServers": {
     "remix-icon": {
       "command": "npx",
-      "args": ["-y", "RemixIcon-MCP"]
+      "args": ["-y", "remixicon-mcp"]
     }
   }
 }
@@ -74,7 +74,7 @@ Install directly from GitHub as a marketplace plugin:
 
 ```bash
 # In Claude Code, add the marketplace
-/plugin marketplace add Remix-Design/RemixIcon-MCP
+/plugin marketplace add Remix-Design/remixicon-mcp
 ```
 
 This provides:
@@ -94,7 +94,7 @@ Alternatively, add the following to your project's `.claude/settings.json`:
     "servers": {
       "remix-icon": {
         "command": "npx",
-        "args": ["-y", "RemixIcon-MCP"]
+        "args": ["-y", "remixicon-mcp"]
       }
     }
   }

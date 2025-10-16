@@ -1,5 +1,5 @@
 {
-	"name": "RemixIcon-MCP",
+	"name": "remixicon-mcp",
 	"version": "1.0.0",
 	"description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
 	"main": "src/index.ts",
@@ -25,7 +25,7 @@
 	},
 	"homepage": "https://github.com/Remix-Design/RemixIcon-MCP#readme",
 	"bin": {
-		"RemixIcon-MCP": "bin/run.cjs"
+		"remixicon-mcp": "bin/run.cjs"
 	},
 	"files": [
 		"bin/",
