@@ -1,46 +1,46 @@
 {
-  "name": "remix-icon-mcp-server",
-  "owner": {
-    "name": "Remix-Design",
-    "url": "https://github.com/Remix-Design"
-  },
-  "metadata": {
-    "description": "Official Remix Icon MCP server providing intelligent icon search and discovery with semantic matching",
-    "version": "0.3.2"
-  },
-  "plugins": [
-    {
-      "name": "remix-icon-mcp-server",
-      "source": "./",
-      "description": "A Model Context Protocol server for Remix Icon search with FlexSearch-powered semantic matching. Maps icon-focused keywords to Remix Icon metadata, providing top 5 most relevant icons with clean architecture and local search.",
-      "version": "0.3.2",
-      "author": {
-        "name": "Remix-Design",
-        "url": "https://github.com/Remix-Design"
-      },
-      "homepage": "https://github.com/Remix-Design/RemixIcon-MCP",
-      "repository": "https://github.com/Remix-Design/RemixIcon-MCP",
-      "license": "MIT",
-      "keywords": [
-        "mcp",
-        "remix-icon",
-        "icons",
-        "search",
-        "design",
-        "ui",
-        "flexsearch",
-        "semantic-search",
-        "icon-search"
-      ],
-      "category": "productivity",
-      "strict": false,
-      "mcpServers": {
-        "remix-icon": {
-          "type": "stdio",
-          "command": "npx",
-          "args": ["-y", "mcp-server-remix-icon"]
-        }
-      }
-    }
-  ]
+	"name": "remix-icon-mcp",
+	"owner": {
+		"name": "Remix-Design",
+		"url": "https://github.com/Remix-Design"
+	},
+	"metadata": {
+		"description": "Official Remix Icon MCP server providing intelligent icon search and discovery with semantic matching",
+		"version": "1.0.0"
+	},
+	"plugins": [
+		{
+			"name": "remix-icon-mcp",
+			"source": "./",
+			"description": "A Model Context Protocol server for Remix Icon search with FlexSearch-powered semantic matching. Maps icon-focused keywords to Remix Icon metadata, providing top 5 most relevant icons with clean architecture and local search.",
+			"version": "1.0.0",
+			"author": {
+				"name": "Remix-Design",
+				"url": "https://github.com/Remix-Design"
+			},
+			"homepage": "https://github.com/Remix-Design/RemixIcon-MCP",
+			"repository": "https://github.com/Remix-Design/RemixIcon-MCP",
+			"license": "MIT",
+			"keywords": [
+				"mcp",
+				"remix-icon",
+				"icons",
+				"search",
+				"design",
+				"ui",
+				"flexsearch",
+				"semantic-search",
+				"icon-search"
+			],
+			"category": "productivity",
+			"strict": false,
+			"mcpServers": {
+				"remix-icon": {
+					"type": "stdio",
+					"command": "npx",
+					"args": ["-y", "RemixIcon-MCP"]
+				}
+			}
+		}
+	]
 }
