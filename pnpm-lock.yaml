@@ -14,6 +14,9 @@ importers:
       flexsearch:
         specifier: ^0.8.212
         version: 0.8.212
+      tsx:
+        specifier: ^4.20.6
+        version: 4.20.6
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -24,9 +27,6 @@ importers:
       '@types/node':
         specifier: ^24.7.1
         version: 24.7.1
-      tsx:
-        specifier: ^4.20.6
-        version: 4.20.6
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
