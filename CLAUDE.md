@@ -5,234 +5,169 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Essential Commands
-- `npm run dev` or `npm start` - Start development server with Wrangler
-- `npm run deploy` - Generate MCP documentation and deploy to Cloudflare Workers  
-- `npm run deploy:kv` - Deploy with KV storage initialization (recommended for production)
-- `npm test` - Run tests with Vitest (using Cloudflare Workers test pool)
-- `npm run cf-typegen` - Generate Cloudflare Workers types
+- `npm run build` - Run TypeScript compiler check (tsc --noEmit)
+- `npm run typecheck` - Same as build, strict TypeScript checking
+- `npm run lint` - Run Biome linter with auto-fix
+- `npm run format` - Format code with Biome
+- `npm test` - Run tests with Vitest
 
 ### Testing
-- All tests use Vitest with `@cloudflare/vitest-pool-workers` for Cloudflare Workers compatibility
-- Test files are located in `tests/` directory with subdirectories for `integration/` and `unit/` tests
-- Configuration is in `vitest.config.mts` which references `wrangler.jsonc`
+- Tests use Vitest with Node environment
+- Test files located in `tests/` directory
+- Configuration in `vitest.config.mts`
+- Single test execution: `vitest run specific.test.ts`
+
+### CLI Usage
+- `npx remixicon-mcp` - Run MCP server directly via stdio
+- `npm install -g remixicon-mcp` - Install as global CLI tool
+- Local testing: `node bin/run.cjs` or `tsx src/cli/run.ts`
 
 ## Architecture Overview
 
 ### Core Structure
-This is a **Cloudflare Workers MCP (Model Context Protocol) server** that provides intelligent icon search and recommendation services for Remix Icons. The architecture follows domain-driven design principles.
+This is a **Model Context Protocol (MCP) server** that provides intelligent icon search for Remix Icons. The architecture follows Clean Architecture principles with clear separation between domain logic, application services, infrastructure, and interface layers.
+
+### Project Structure
+```
+src/
+├── cli/                    # CLI runner for standalone execution
+├── bootstrap/              # Dependency injection and service wiring
+├── domain/                 # Business logic and entities
+│   ├── entities/           # Core data models (Icon)
+│   ├── services/           # Domain services (KeywordParser)
+│   └── constants/          # Text processing constants
+├── application/            # Use cases and ports
+│   ├── use-cases/          # Business logic orchestration
+│   └── ports/              # Repository interfaces
+├── infrastructure/         # External implementations
+│   ├── search/             # FlexSearch repository
+│   └── data/               # Data adapters
+├── interface/              # External interfaces
+│   └── mcp/                # MCP server implementation
+└── data/                   # Static data files
+    └── tags.json           # Remix Icon catalog
+```
 
 ### Key Components
 
-**Main Entry Point (`src/index.ts`)**
-- `RemixIconMCP` class extends `WorkerEntrypoint` 
-- Provides three main methods: `findIcons()`, `getIconCategories()`, `findIconsByCategory()`
-- Uses dependency injection pattern with `createSearchService()` factory
+**Domain Layer**
+- `Icon` entity: Core icon metadata model with name, tags, category, usage
+- `KeywordParser` service: Validates and parses comma-separated keywords (max 20)
+- Text processing constants for Unicode-aware keyword validation
 
-**Domain Layer (`src/domain/`)**
-- **Icon Domain**: Type definitions and models for icon metadata
-- **Search Domain**: Complete search functionality including:
-  - Search configuration with weights, thresholds, and boosts
-  - Multi-level caching with LRU strategy
-  - Inverted index for fast preliminary search
-  - Scorer service with multiple similarity algorithms
-  - Query processing and enhancement
+**Application Layer**
+- `SearchIconsUseCase`: Orchestrates icon search workflow
+- `IconSearchRepository` port: Abstract interface for search repositories
+- Validates input, delegates to repository, formats results
 
-**Search Architecture**
-- **Two-tier search strategy**: Fast inverted index for preliminary results, then detailed scoring
-- **Multi-algorithm similarity matching**: Jaccard, N-gram, Levenshtein, category matching, exact matching
-- **Semantic query enhancement**: Enriches queries with related terms
-- **Configurable scoring**: Weights and thresholds defined in `DEFAULT_SEARCH_CONFIG`
+**Infrastructure Layer**
+- `FlexSearchIconSearchRepository`: FlexSearch-based implementation
+- `TagsToIconsAdapter`: Converts raw tags.json data to Icon entities
+- Document index with field weights for optimized search scoring
 
-**Infrastructure Layer (`src/infrastructure/`)**
-- Logging with configurable log levels
-- Result handling with success/failure patterns
+**Interface Layer**
+- `IconKeywordServer`: MCP server using @modelcontextprotocol/sdk
+- Exposes single `search_icons` tool
+- JSON-RPC 2.0 communication over stdio
 
-**Utilities (`src/utils/`)**
-- Text processing for normalization and Chinese/English text handling
-- Similarity calculations with semantic vectors
-- Multiple similarity algorithms implementation
+**CLI Layer**
+- `runCli()`: Standalone CLI execution via tsx
+- `bin/run.cjs`: Node.js wrapper for npx compatibility
 
 ### Data Flow
-1. Icon tags loaded from `src/data/tags.json`
-2. Inverted index built on service initialization
-3. Search requests processed through query enhancement → index search → detailed scoring → caching
-4. Results returned with relevance scores and categories
+1. Icon catalog loaded from `src/data/tags.json`
+2. TagsToIconsAdapter converts raw data to Icon entities
+3. FlexSearch repository builds document index on initialization
+4. KeywordParser validates input keywords (max 20, comma-separated)
+5. SearchIconsUseCase coordinates search workflow
+6. FlexSearch performs weighted search across name, tags, category, usage
+7. Results formatted for MCP response (always top 5)
 
-### Performance Features
-- **Hybrid caching**: Cloudflare Cache API with in-memory LRU for hot data
-- **Streaming search**: Memory-efficient batch processing to avoid 128MB Worker limits
-- **KV storage**: Icon catalog and search indexes stored in Cloudflare KV for persistence
-- **Inverted index**: Fast preliminary search before detailed scoring
-- **Configurable thresholds**: Minimum score (0.08), high score (0.3), secondary results (0.1)
-- **Concurrent batch processing**: Parallel processing with memory management
+### Search Configuration
+FlexSearch document index with optimized weights:
+- Name matching: Highest priority for exact icon names
+- Tags matching: Keyword relevance scoring
+- Category matching: Icon categorization scoring
+- Usage matching: Common usage patterns scoring
 
-## Configuration
-
-### Search Configuration (`src/domain/search/config/`)
-All search behavior is controlled by `DEFAULT_SEARCH_CONFIG`:
-- **Weights**: Category (0.35), Name match (0.37), Tags (0.28), etc.
-- **Thresholds**: High score (0.3), minimum score (0.05), secondary (0.1)
-- **Boosts**: Exact match (2.4), name match (2.2), category match (2.2)
-- **Cache settings**: Max size 1000, TTL 1 hour
-
-### Cloudflare Workers (`wrangler.jsonc`)
-- Uses compatibility date `2025-02-24`
-- Observability enabled with Analytics Engine integration
-- KV namespace: `ICON_CATALOG` for storing icon data and search indexes
-- Analytics Engine dataset: `remix_icon_analytics` for metrics storage
-- Environment variables: `TELEMETRY_ENABLED`, `DASHBOARD_ENABLED`, `LOG_LEVEL`
-- Main entry point: `src/index.ts`
-
-### Observability Configuration
-- **Telemetry Service**: Comprehensive metrics collection and distributed tracing
-- **Dashboard Service**: Real-time monitoring with customizable widgets and alerting
-- **Correlation Tracker**: Request correlation across services and operations
-- **Analytics Engine Integration**: Persistent storage of metrics and traces
-- **Alert System**: Configurable thresholds for error rates, response times, and resource usage
-
-## Cursor Rules Integration
-- Project structure documented in `.cursor/rules/overview.mdc`
-- Custom shortcuts defined in `.cursor/rules/shortcuts.mdc`
-- "Ready to release" command updates README files
-- "Hi" command provides codebase analysis
+### MCP Interface
+Single tool: `search_icons`
+- Input: `keywords` string (comma-separated, max 20 keywords)
+- Output: Top 5 most relevant icons with metadata
+- Validation: Rejects natural language sentences, accepts keyword lists
+- Response: Human-readable summary + structured metadata
 
 ## Key Implementation Patterns
-- **Domain-driven design** with clear separation of concerns
-- **Dependency injection** throughout service layer
-- **Result pattern** for error handling instead of exceptions
-- **Factory pattern** for service creation
-- **Strategy pattern** for similarity algorithms
-- **Adapter pattern** for cache interface compatibility
-- **Streaming pattern** for memory-efficient processing
-- **Comprehensive logging** with structured context
 
-## Architecture Optimizations
+### Clean Architecture
+- **Dependency Rule**: Dependencies point inward (Infrastructure → Application → Domain)
+- **Port-Adapter Pattern**: Application defines ports, Infrastructure provides adapters
+- **Use Case Orchestration**: Application layer coordinates business workflows
+- **Entity Isolation**: Domain models contain only business logic
 
-### Phase 1 Improvements (Completed)
-1. **KV Storage Migration**: Icon catalog moved from JSON to Cloudflare KV
-2. **Memory Optimization**: Streaming search with batch processing
-3. **Cache Modernization**: Cloudflare Cache API with hybrid in-memory layer
+### Search Architecture
+- **Document Index**: FlexSearch with pre-built index for performance
+- **Field Weighting**: Configurable weights for different icon properties
+- **Token Matching**: Unicode-aware tokenization for multi-language support
+- **Deterministic Scoring**: Consistent relevance scoring for reproducible results
 
-### Phase 2 Simplifications (Completed)
-1. **Unified Cache Service**: Consolidated 3 cache implementations into 1
-2. **Unified Search Service**: Merged SearchService and StreamingSearchService
-3. **Centralized Error Handling**: Consistent error patterns across all services
-4. **Configuration Management**: Single ConfigManager for all settings
+### Input Validation
+- **Keyword Limits**: Maximum 20 keywords to prevent abuse
+- **Format Detection**: Distinguishes keyword lists from natural language
+- **Unicode Support**: Proper handling of international characters
+- **Error Handling**: Clear validation messages for invalid inputs
 
-### Phase 3 Advanced Performance (Completed)
-1. **Tiered Search Pipeline**: Multi-stage search with Bloom filters and early termination
-2. **Incremental Indexing**: N-gram pre-computation with versioning and delta updates
-3. **Advanced Observability**: Comprehensive metrics, tracing, and real-time dashboards
-4. **Smart Caching System**: ML-driven predictive caching with query pattern analysis
-5. **AI-Enhanced Search**: Cloudflare Workers AI integration with semantic embeddings and intent classification
+### CLI Design
+- **Stdio Communication**: JSON-RPC 2.0 over stdin/stdout
+- **Graceful Error Handling**: Proper error responses and logging
+- **Process Management**: Clean startup/shutdown procedures
+- **Wrapper Compatibility**: Node.js wrapper for npx execution
 
-### Architecture Benefits
-- **Memory Usage**: Reduced from ~1.1MB JSON loading to streaming batches
-- **Cache Persistence**: Search results survive Worker restarts  
-- **Code Maintainability**: 40% reduction in service classes through unification
-- **Error Consistency**: Structured error handling with proper logging levels
-- **Configuration Flexibility**: Environment-based config with sensible defaults
-- **Response Time**: Hot data < 1ms, warm data < 50ms, cold data < 200ms
-- **Search Performance**: 3-stage pipeline with O(1) → O(log n) → O(k) complexity
-- **Observability**: Real-time metrics, distributed tracing, and automated alerting
-- **Query Intelligence**: N-gram matching, phonetic search, and pattern analytics
+## Development Guidelines
 
-## Observability Features
+### Adding New Search Features
+1. Extend `Icon` entity in `src/domain/entities/icon.ts`
+2. Update `TagsToIconsAdapter` to handle new data fields
+3. Modify FlexSearch configuration in repository
+4. Update use case if business logic changes
+5. Add tests for new functionality
 
-### Real-Time Dashboard
-- **System Overview**: Request counts, success rates, response times, cache hit rates
-- **Performance Metrics**: Memory usage, P95 response times, error rates
-- **Query Analytics**: Popular search patterns, category distribution, trend analysis
-- **Response Time Heatmap**: Performance patterns by time and day
-- **Alert Management**: Active alerts with severity levels and acknowledgment
+### Testing Strategy
+- Unit tests for domain services and entities
+- Integration tests for use cases and repositories
+- CLI tests for MCP interface functionality
+- Mock FlexSearch in unit tests for isolation
 
-### Distributed Tracing
-- **Correlation Tracking**: End-to-end request correlation across services
-- **Span Collection**: Detailed operation timing and metadata
-- **Performance Analysis**: Bottleneck identification and optimization insights
-- **Error Attribution**: Precise error location and context
+### Code Organization
+- Keep domain layer pure (no external dependencies)
+- Infrastructure implements application ports
+- Use dependency injection via bootstrap layer
+- Maintain single responsibility principle throughout
 
-### Metrics Collection
-- **Search Metrics**: Duration, result counts, cache hits, error counts by operation
-- **Performance Counters**: Memory usage, request rates, error rates
-- **Query Patterns**: Frequency analysis, success rates, response time patterns
-- **System Health**: Active spans, correlation contexts, resource utilization
+## Performance Considerations
 
-### Alerting System
-- **Configurable Thresholds**: Error rate, response time, cache hit rate, memory usage
-- **Severity Levels**: Low, medium, high, critical with appropriate escalation
-- **Alert Cooldowns**: Prevent notification spam with configurable intervals
-- **Real-Time Notifications**: Immediate alerts for critical system issues
+### Search Optimization
+- **Index Pre-building**: FlexSearch index built once at startup
+- **Memory Efficiency**: Icon data loaded once, shared across requests
+- **Scoring Cache**: Consistent scoring prevents recalculation
+- **Result Limiting**: Fixed top 5 results control response size
 
-### Analytics Engine Integration
-- **Persistent Storage**: Long-term metrics storage in Cloudflare Analytics Engine
-- **Data Export**: Structured data export for external analysis tools
-- **Historical Analysis**: Long-term trend analysis and capacity planning
-- **Custom Dashboards**: Flexible widget system for specialized monitoring needs
+### CLI Performance
+- **Minimal Dependencies**: Fast startup time for CLI usage
+- **Efficient Parsing**: Quick keyword validation and tokenization
+- **Stream Processing**: JSON-RPC responses streamed efficiently
+- **Memory Management**: Proper cleanup and resource management
 
-## Smart Caching System
+## Deployment and Distribution
 
-### Predictive Cache Service
-- **Query Pattern Analysis**: ML-driven analysis of user search patterns and behaviors
-- **Seasonal Intelligence**: Time-based patterns with hourly and weekly distributions
-- **User Behavior Tracking**: Session analysis and query sequence learning
-- **Smart Predictions**: Probability-based cache warming with reasoning explanations
-- **Background Warming**: Automated cache warming based on predicted queries
+### NPM Package
+- **Bin Entry**: `bin/run.cjs` for CLI execution
+- **Main Entry**: `src/index.ts` for library usage
+- **Files Included**: Essential source and documentation files
+- **Engine Compatibility**: Node.js >= 18.0.0
 
-### Intelligent Cache Management
-- **Adaptive TTL**: Dynamic cache expiration based on query characteristics and usage patterns
-- **Multi-Tier Eviction**: Sophisticated eviction policies (LRU, LFU, adaptive, predictive)
-- **Priority-Based Storage**: Smart cache entry prioritization based on query complexity and success rates
-- **Memory Optimization**: Automatic memory management with compression and adaptive sizing
-- **Performance Analytics**: Comprehensive cache hit/miss analysis and warming success metrics
-
-### ML-Driven Optimization
-- **Feature Engineering**: Query frequency, recency, seasonality, and user context analysis
-- **Probability Modeling**: Weighted linear model for cache warming probability calculation
-- **Pattern Recognition**: Related query identification and user segment analysis
-- **Adaptive Learning**: Real-time model parameter adjustment based on cache performance
-- **Predictive Insights**: Query trend forecasting and user behavior prediction
-
-### Cache Warming Strategies
-- **Reactive Warming**: Traditional cache-miss-triggered warming
-- **Predictive Warming**: ML-prediction-based proactive cache warming
-- **Hybrid Approach**: Combined reactive and predictive strategies for optimal performance
-- **Priority Queuing**: Smart warming queue management with probability-based prioritization
-- **Success Tracking**: Warming effectiveness monitoring and adaptive threshold adjustment
-
-## AI-Enhanced Search System
-
-### Semantic Search Service
-- **Vector Embeddings**: Cloudflare Workers AI integration with BGE-base-en-v1.5 model
-- **Cosine Similarity**: Advanced similarity scoring for semantic understanding
-- **Embedding Cache**: LRU cache with intelligent eviction for embedding optimization
-- **Batch Processing**: Efficient embedding generation with rate limit handling
-- **Semantic Vectors**: 768-dimensional embeddings with metadata and context
-
-### Intent Classification Service
-- **Multi-Modal Classification**: Rule-based and ML-powered intent recognition
-- **Context Analysis**: Query complexity, user experience, and urgency assessment
-- **Entity Extraction**: Automatic identification of categories, actions, and objects
-- **Sentiment Analysis**: User sentiment detection for personalized responses
-- **Session Tracking**: User behavior patterns and query sequence analysis
-
-### AI-Enhanced Search Engine
-- **Hybrid Scoring**: Combined traditional, semantic, and intent-based scoring
-- **Adaptive Strategies**: Multiple search strategies (balanced, semantic-focused, intent-driven)
-- **Smart Weighting**: Dynamic weight adjustment based on query characteristics
-- **Quality Analysis**: Real-time search quality assessment with improvement suggestions
-- **Personalization**: User-specific recommendations and contextual search enhancement
-
-### Advanced AI Features
-- **Search Strategies**: 5 intelligent strategies for different use cases and user types
-- **Performance Analytics**: Comprehensive AI contribution metrics and success tracking
-- **Fallback Mechanisms**: Graceful degradation when AI services are unavailable
-- **Confidence Scoring**: Multi-level confidence assessment for result reliability
-- **Explanation Generation**: Human-readable explanations for AI-driven results
-
-### AI Model Integration
-- **Embedding Model**: `@cf/baai/bge-base-en-v1.5` for semantic vector generation
-- **Classification Model**: `@cf/huggingface/distilbert-sst-2-int8` for sentiment analysis
-- **Workers AI Binding**: Native Cloudflare Workers AI integration with automatic scaling
-- **Model Caching**: Intelligent caching of embeddings and classification results
-- **Error Handling**: Robust error handling with traditional search fallbacks
+### MCP Integration
+- **Claude Desktop**: Configuration via `claude_desktop_config.json`
+- **Claude Code**: Marketplace plugin or manual `.claude/settings.json`
+- **Stdio Protocol**: Standard MCP JSON-RPC 2.0 communication
+- **Tool Discovery**: Automatic tool registration and metadata
