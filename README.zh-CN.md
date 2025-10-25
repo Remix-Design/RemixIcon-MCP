@@ -46,81 +46,97 @@ npx remixicon-mcp
 remixicon-mcp
 ```
 
-#### Claude Desktop 配置
+## 平台配置
 
-要在 Claude Desktop 中使用此服务器，请将以下配置添加到 `claude_desktop_config.json`：
+### Claude Desktop
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**配置方式**
+将以下配置添加到 `claude_desktop_config.json`：
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
-      "mcpServers": {
-        "remix-icon": {
-          "command": "npx",
-          "args": ["-y", "remixicon-mcp"]
-        }
-      }}
-```
-
-保存配置文件后，完全退出并重启 Claude Desktop 以使更改生效。
-
-#### 快速安装命令
-
-**Claude Desktop:**
-```bash
-claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
-```
-
-**Claude Code:**
-```bash
-codex mcp add remixicon -- npx -y remixicon-mcp
-```
-
-#### Claude Code 配置
-
-**添加为 Marketplace 插件**
-
-直接从 GitHub 安装为 marketplace 插件：
-
-```bash
-# 在 Claude Code 中，添加 marketplace
-/plugin marketplace add Remix-Design/remixicon-mcp
-```
-
-这将提供：
-- 自动安装和更新
-- 完整的插件元数据和版本管理
-- 用于发现的关键词和分类
-- 丰富的描述和作者信息
-- 与 Claude Code 插件生态系统的完整集成
-
-**手动配置（备选）**
-
-或者，在项目的 `.claude/settings.json` 中添加以下配置：
-
-```json
-{
-  "mcp": {
-        "servers": {
-           "remix-icon": {
-             "command": "npx",
-             "args": ["-y", "remixicon-mcp"]
-           }
-        }  }
+  "mcpServers": {
+    "remix-icon": {
+      "command": "npx",
+      "args": ["-y", "remixicon-mcp"]
+    }
+  }
 }
 ```
 
-添加配置后，重启 Claude Code 以使更改生效。
+**设置步骤**
+1. 保存配置文件
+2. 完全退出并重启 Claude Desktop
+3. `search_icons` 工具将在对话中可用
 
-#### 可用工具
+### Claude Code
+
+**选项 1：Marketplace 插件（推荐）**
+```bash
+# 在 Claude Code 中添加 marketplace 插件
+/plugin marketplace add Remix-Design/remixicon-mcp
+```
+
+优势：
+- 自动安装和更新
+- 完整的插件元数据和版本管理
+- 丰富的关键词和分类发现
+- 与 Claude Code 插件生态系统的完整集成
+
+**选项 2：手动配置**
+```bash
+# 快速命令行设置
+claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
+```
+
+或在项目的 `.claude/settings.json` 中手动添加：
+```json
+{
+  "mcp": {
+    "servers": {
+      "remix-icon": {
+        "command": "npx",
+        "args": ["-y", "remixicon-mcp"]
+      }
+    }
+  }
+}
+```
+
+**设置步骤**
+1. 选择上述任一安装方式
+2. 重启 Claude Code 使更改生效
+3. `search_icons` 工具将在会话中可用
+
+### Codex
+
+**配置方式**
+```bash
+# 快速命令行设置
+codex mcp add remixicon -- npx -y remixicon-mcp
+```
+
+**设置步骤**
+1. 运行上述安装命令
+2. 重启 Codex 使更改生效
+3. `search_icons` 工具将在对话中可用
+
+## 可用工具
 
 服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
 
-- `search_icons` – 必填参数 `keywords`（逗号分隔的关键词字符串,最多 20 个）。始终返回前 5 个结果。
+### `search_icons`
 
-### 工具调用示例
+**输入**：`keywords` 字符串（逗号分隔，最多 20 个关键词）  
+**输出**：最相关的 5 个图标及其元数据  
+**格式**：可读摘要 + 结构化元数据
 
+### 使用示例
+
+**JSON-RPC 调用：**
 ```json
 {
   "jsonrpc": "2.0",
@@ -135,7 +151,8 @@ codex mcp add remixicon -- npx -y remixicon-mcp
 }
 ```
 
-服务器会返回便于阅读的摘要文本，以及包含最相关的 5 个图标的结构化元数据。
+**示例响应：**
+服务器返回与关键词匹配的最相关 5 个图标，包含名称、分类和使用信息。
 
 ## 项目结构
 
