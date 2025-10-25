@@ -66,6 +66,18 @@ To use this server with Claude Desktop, add the following configuration to your 
 
 After saving the configuration file, completely quit and restart Claude Desktop for the changes to take effect.
 
+#### Quick Installation Commands
+
+**For Claude Desktop:**
+```bash
+claude mcp add --transport stdio remix-icon -- npx -y remixicon-mcp
+```
+
+**For Claude Code:**
+```bash
+codex mcp add remix-icon -- npx -y remixicon-mcp
+```
+
 #### Claude Code Configuration
 
 **Add as Marketplace Plugin**

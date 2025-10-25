@@ -65,6 +65,18 @@ remixicon-mcp
 
 保存配置文件后，完全退出并重启 Claude Desktop 以使更改生效。
 
+#### 快速安装命令
+
+**Claude Desktop:**
+```bash
+claude mcp add --transport stdio remix-icon -- npx -y remixicon-mcp
+```
+
+**Claude Code:**
+```bash
+codex mcp add remix-icon -- npx -y remixicon-mcp
+```
+
 #### Claude Code 配置
 
 **添加为 Marketplace 插件**
