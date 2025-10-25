@@ -70,12 +70,12 @@ After saving the configuration file, completely quit and restart Claude Desktop 
 
 **For Claude Desktop:**
 ```bash
-claude mcp add --transport stdio remix-icon -- npx -y remixicon-mcp
+claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
 ```
 
 **For Claude Code:**
 ```bash
-codex mcp add remix-icon -- npx -y remixicon-mcp
+codex mcp add remixicon -- npx -y remixicon-mcp
 ```
 
 #### Claude Code Configuration

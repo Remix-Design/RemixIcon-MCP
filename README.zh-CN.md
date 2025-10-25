@@ -69,12 +69,12 @@ remixicon-mcp
 
 **Claude Desktop:**
 ```bash
-claude mcp add --transport stdio remix-icon -- npx -y remixicon-mcp
+claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
 ```
 
 **Claude Code:**
 ```bash
-codex mcp add remix-icon -- npx -y remixicon-mcp
+codex mcp add remixicon -- npx -y remixicon-mcp
 ```
 
 #### Claude Code 配置
