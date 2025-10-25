@@ -46,11 +46,14 @@ npx remixicon-mcp
 remixicon-mcp
 ```
 
-#### Claude Desktop Configuration
+## Platform Setup
 
-To use this server with Claude Desktop, add the following configuration to your `claude_desktop_config.json`:
+### Claude Desktop
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Configuration**
+Add the following to your `claude_desktop_config.json`:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
@@ -64,30 +67,32 @@ To use this server with Claude Desktop, add the following configuration to your 
 }
 ```
 
-After saving the configuration file, completely quit and restart Claude Desktop for the changes to take effect.
+**Setup Steps**
+1. Save the configuration file
+2. Completely quit and restart Claude Desktop
+3. The `search_icons` tool will be available in your conversations
 
-#### Claude Code Configuration
+### Claude Code
 
-**Add as Marketplace Plugin**
-
-Install directly from GitHub as a marketplace plugin:
-
+**Option 1: Marketplace Plugin (Recommended)**
 ```bash
-# In Claude Code, add the marketplace
+# In Claude Code, add the marketplace plugin
 /plugin marketplace add Remix-Design/remixicon-mcp
 ```
 
-This provides:
+Benefits:
 - Automatic installation and updates
 - Complete plugin metadata and versioning
-- Keywords and categorization for discovery
-- Rich descriptions and author information
+- Rich discovery with keywords and categorization
 - Full integration with Claude Code's plugin ecosystem
 
-**Manual Configuration (Alternative)**
+**Option 2: Manual Configuration**
+```bash
+# Quick command-line setup
+claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
+```
 
-Alternatively, add the following to your project's `.claude/settings.json`:
-
+Or manually add to your project's `.claude/settings.json`:
 ```json
 {
   "mcp": {
@@ -101,16 +106,37 @@ Alternatively, add the following to your project's `.claude/settings.json`:
 }
 ```
 
-After adding the configuration, restart Claude Code for the changes to take effect.
+**Setup Steps**
+1. Choose one of the installation methods above
+2. Restart Claude Code for the changes to take effect
+3. The `search_icons` tool will be available in your sessions
 
-#### Available Tools
+### Codex
+
+**Configuration**
+```bash
+# Quick command-line setup
+codex mcp add remixicon -- npx -y remixicon-mcp
+```
+
+**Setup Steps**
+1. Run the installation command above
+2. Restart Codex for the changes to take effect
+3. The `search_icons` tool will be available in your conversations
+
+## Available Tools
 
 The server communicates over stdio using JSON-RPC 2.0 via the official `@modelcontextprotocol/sdk` and exposes a single tool:
 
-- `search_icons` – requires a `keywords` string (comma-separated, up to 20 keywords). Always returns top 5 results.
+### `search_icons`
 
-### Example Tool Call
+**Input**: `keywords` string (comma-separated, up to 20 keywords)  
+**Output**: Top 5 most relevant icons with metadata  
+**Format**: Human-readable summary + structured metadata
 
+### Example Usage
+
+**JSON-RPC Call:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -125,7 +151,8 @@ The server communicates over stdio using JSON-RPC 2.0 via the official `@modelco
 }
 ```
 
-The server returns human-readable summaries plus structured metadata with the top 5 icons that matched the supplied keywords.
+**Sample Response:**
+The server returns the top 5 icons that match your keywords, complete with names, categories, and usage information.
 
 ## Project Structure
 
