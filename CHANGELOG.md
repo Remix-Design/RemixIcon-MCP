@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.1] - 2025-10-26
+
+### Fixed
+- Updated MCP server name from remix-icon to remixicon for package publishing compatibility
+- Corrected package name casing to allow successful npm publication
+- Updated all documentation to reflect CLI-based MCP server architecture
+- Removed Cloudflare Workers references and replaced with Node.js CLI implementation
+- Added comprehensive setup instructions for Claude Desktop, Claude Code, and Codex platforms
+
+
 ## [0.4.0] - 2025-10-12
 
 ### Added
@@ -147,6 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-language support optimization
   - English and Chinese text processing
 
+[1.0.1]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.4.0...v1.0.1
 [0.4.0]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.2.0...v0.3.1
