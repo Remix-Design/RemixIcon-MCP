@@ -38,7 +38,7 @@
 				"remix-icon": {
 					"type": "stdio",
 					"command": "npx",
-					"args": ["-y", "RemixIcon-MCP"]
+					"args": ["-y", "remixicon-mcp"]
 				}
 			}
 		}

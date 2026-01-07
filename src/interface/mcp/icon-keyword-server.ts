@@ -29,7 +29,7 @@ export async function startMcpServer(): Promise<void> {
     {
       title: "Search Remix Icons by keyword",
       description:
-        "Search Remix Icon metadata using comma-separated keywords (up to 20 keywords). Returns top 5 most relevant icons. Supports both single keywords and keyword lists. Avoid natural language sentences.",
+        "Search Remix Icon metadata using comma-separated keywords (up to 20 keywords). Returns top 5 most relevant icons. Supports both single keywords and keyword lists. Avoid natural language sentences. Returns format: 'icon-name (score)'. Example: 'sun-fill (46.00)'.",
       inputSchema: {
         keywords: keywordsSchema.describe(
           "Comma-separated keywords to search for icons (e.g., 'summer, sun, beach')",
@@ -71,14 +71,9 @@ function buildToolResponse(result: SearchIconsResponse) {
 
   // Add icon list for multiple matches
   if (result.matches.length > 1) {
-    lines.push("Top icon candidates:");
     for (const match of result.matches) {
-      lines.push(
-        `- ${match.icon.name} (score ${match.score.toFixed(2)})`,
-      );
+      lines.push(`${match.icon.name} (${match.score.toFixed(2)})`);
     }
-    lines.push("");
-    lines.push("Select the most suitable icon.");
   } else if (result.matches.length === 1) {
     // Single match is already handled by guidance
   }
@@ -94,14 +89,6 @@ function buildToolResponse(result: SearchIconsResponse) {
       guidance: result.guidance,
       matches: result.matches.map((match) => ({
         name: match.icon.name,
-        path: match.icon.path,
-        category: match.icon.category,
-        style: match.icon.style,
-        usage: match.icon.usage,
-        baseName: match.icon.baseName,
-        tags: match.icon.tags,
-        score: match.score,
-        matchedTokens: match.matchedTokens,
       })),
     },
   };
