@@ -71,18 +71,9 @@ function buildToolResponse(result: SearchIconsResponse) {
 
   // Add icon list for multiple matches
   if (result.matches.length > 1) {
-    lines.push("Top icon candidates:");
     for (const match of result.matches) {
-      const { name, category, tags } = match.icon;
-      const url = `https://remixicon.com/icon/${name}`;
-      lines.push(`- **[${name}](${url})** (Score: ${match.score.toFixed(2)})`);
-      lines.push(`  Category: ${category}`);
-      if (tags.length > 0) {
-        lines.push(`  Tags: ${tags.slice(0, 5).join(", ")}`);
-      }
+      lines.push(match.icon.name);
     }
-    lines.push("");
-    lines.push("Select the most suitable icon.");
   } else if (result.matches.length === 1) {
     // Single match is already handled by guidance
   }
