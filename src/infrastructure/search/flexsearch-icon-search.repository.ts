@@ -186,6 +186,10 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
         if (b.score !== a.score) {
           return b.score - a.score;
         }
+        // Prefer shorter names (heuristic for specificity)
+        if (a.icon.name.length !== b.icon.name.length) {
+          return a.icon.name.length - b.icon.name.length;
+        }
         return a.icon.name.localeCompare(b.icon.name);
       });
   }
