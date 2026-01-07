@@ -72,7 +72,7 @@ function buildToolResponse(result: SearchIconsResponse) {
   // Add icon list for multiple matches
   if (result.matches.length > 1) {
     for (const match of result.matches) {
-      lines.push(match.icon.name);
+      lines.push(`${match.icon.name} (${match.score.toFixed(2)})`);
     }
   } else if (result.matches.length === 1) {
     // Single match is already handled by guidance
