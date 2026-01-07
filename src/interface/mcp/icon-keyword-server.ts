@@ -29,7 +29,7 @@ export async function startMcpServer(): Promise<void> {
     {
       title: "Search Remix Icons by keyword",
       description:
-        "Search Remix Icon metadata using comma-separated keywords (up to 20 keywords). Returns top 5 most relevant icons. Supports both single keywords and keyword lists. Avoid natural language sentences.",
+        "Search Remix Icon metadata using comma-separated keywords (up to 20 keywords). Returns top 5 most relevant icons. Supports both single keywords and keyword lists. Avoid natural language sentences. Returns format: 'icon-name (score)'. Example: 'sun-fill (46.00)'.",
       inputSchema: {
         keywords: keywordsSchema.describe(
           "Comma-separated keywords to search for icons (e.g., 'summer, sun, beach')",
