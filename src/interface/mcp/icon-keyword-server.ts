@@ -94,14 +94,6 @@ function buildToolResponse(result: SearchIconsResponse) {
       guidance: result.guidance,
       matches: result.matches.map((match) => ({
         name: match.icon.name,
-        path: match.icon.path,
-        category: match.icon.category,
-        style: match.icon.style,
-        usage: match.icon.usage,
-        baseName: match.icon.baseName,
-        tags: match.icon.tags,
-        score: match.score,
-        matchedTokens: match.matchedTokens,
       })),
     },
   };
