@@ -117,6 +117,7 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
             iconId as string,
             fieldResult.field as string,
             keyword,
+            icon
           );
         }
       }
@@ -130,14 +131,50 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
     iconId: string,
     field: string,
     keyword: string,
+    icon: IconMetadata
   ): void {
     const current = scores.get(iconId) ?? {
       score: 0,
       matched: new Set<string>(),
     };
 
-    current.score +=
-      FIELD_WEIGHTS[field as keyof typeof FIELD_WEIGHTS] ?? 1;
+    // Calculate match quality based on length ratio
+    // This penalizes matches where the field value is much longer than the keyword
+    // e.g. searching "home" -> "home" (ratio 1.0) vs "home-2" (ratio 0.66)
+    let fieldValue = "";
+    if (field in icon) {
+      const val = icon[field as keyof IconMetadata];
+      if (typeof val === "string") {
+        fieldValue = val;
+      } else if (Array.isArray(val)) {
+        // For arrays like tags, we can't easily determine which exact tag matched without more complex logic
+        // So we default to a reasonable length estimate or just 1.0 if it's a direct hit
+        // Ideally we'd find the best matching tag, but for now let's use a simplified approach
+        // If any tag is an exact match, use 1.0. Otherwise use a default penalty.
+        fieldValue = val.find(t => t.includes(keyword)) ?? "";
+      }
+    }
+
+    let quality = 1.0;
+    if (fieldValue) {
+      const fieldLower = fieldValue.toLowerCase();
+      const keywordLower = keyword.toLowerCase();
+      
+      if (fieldLower === keywordLower) {
+        quality = 1.2; // Boost exact field matches slightly above 1.0
+      } else {
+        // Calculate ratio
+        quality = keywordLower.length / fieldLower.length;
+        
+        // If it's not a prefix match (mid-word match), penalize further
+        if (!fieldLower.startsWith(keywordLower)) {
+          quality *= 0.8;
+        }
+      }
+    }
+
+    const weight = FIELD_WEIGHTS[field as keyof typeof FIELD_WEIGHTS] ?? 1;
+    current.score += weight * quality;
 
     this.applyTokenMatching(current, iconId, keyword);
     scores.set(iconId, current);
