@@ -1,6 +1,6 @@
 {
 	"name": "remixicon-mcp",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
 	"main": "src/index.ts",
 	"repository": {
