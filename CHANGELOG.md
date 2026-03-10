@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.2.0] - 2026-03-10
+
+### Added
+- MCP server smoke test for end-to-end validation
+
+### Changed
+- Improved search scoring differentiation for better result relevance
+- Migrated Biome configuration to latest schema version
+- Upgraded dependencies to latest versions
+
+### Fixed
+- Updated Biome schema to v2.3.11 for compatibility
+
+
 ## [1.0.1] - 2025-10-26
 
 ### Fixed
@@ -157,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-language support optimization
   - English and Chinese text processing
 
-[1.0.1]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.4.0...v1.0.1
+[1.2.0]: https://github.com/Remix-Design/RemixIcon-MCP/compare/v1.1.0...v1.2.0
+[1.0.1]: https://github.com/Remix-Design/RemixIcon-MCP/compare/v0.4.0...v1.0.1
 [0.4.0]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.2.0...v0.3.1
