@@ -28,16 +28,17 @@ describe("runCli", () => {
     const errorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    const exitSpy = vi
-      .spyOn(process, "exit")
-      .mockImplementation((() => {
-        throw new Error("exit 1");
-      }) as never);
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {
+      throw new Error("exit 1");
+    }) as never);
 
     const { runCli } = await import("../../../src/cli/run");
 
     await expect(runCli()).rejects.toThrow("exit 1");
-    expect(errorSpy).toHaveBeenCalledWith("Failed to start MCP server", failure);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to start MCP server",
+      failure,
+    );
     expect(exitSpy).toHaveBeenCalledWith(1);
 
     errorSpy.mockRestore();

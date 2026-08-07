@@ -45,7 +45,10 @@ describe("KeywordParser", () => {
 
   it("throws when more than 20 comma-separated keywords are provided", () => {
     const parser = new KeywordParser();
-    const tooManyKeywords = Array.from({ length: 21 }, (_, i) => `keyword${i}`).join(", ");
+    const tooManyKeywords = Array.from(
+      { length: 21 },
+      (_, i) => `keyword${i}`,
+    ).join(", ");
     expect(() => parser.parse(tooManyKeywords)).toThrowError(
       "Keyword input must be provided as short keywords, not full sentences.",
     );
