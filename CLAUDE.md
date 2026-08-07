@@ -5,22 +5,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Essential Commands
-- `npm run build` - Run TypeScript compiler check (tsc --noEmit)
-- `npm run typecheck` - Same as build, strict TypeScript checking
+- `npm run typecheck` - Strict TypeScript check for both Node and Worker projects (`tsc --noEmit` for `src/` and `worker/`)
 - `npm run lint` - Run Biome linter with auto-fix
 - `npm run format` - Format code with Biome
-- `npm test` - Run tests with Vitest
+- `npm test` - Run tests with Vitest (unit + worker integration)
+- `npm run deploy` - Deploy the remote MCP worker to Cloudflare Workers (`wrangler deploy`)
+- `npm run dev` - Run the worker locally via `wrangler dev`
 
 ### Testing
 - Tests use Vitest with Node environment
-- Test files located in `tests/` directory
+- Test files located in `tests/` directory (including `tests/worker/` for Cloudflare worker integration)
 - Configuration in `vitest.config.mts`
 - Single test execution: `vitest run specific.test.ts`
+- Worker integration tests use `unstable_dev` from wrangler to spin up a real local workerd runtime
 
 ### CLI Usage
-- `npx remixicon-mcp` - Run MCP server directly via stdio
+- `npx remixicon-mcp` - Run local MCP server directly via stdio
 - `npm install -g remixicon-mcp` - Install as global CLI tool
 - Local testing: `node bin/run.cjs` or `tsx src/cli/run.ts`
+- Remote MCP endpoint: `https://remix-icon-mcp.frad.workers.dev/mcp` (Streamable HTTP)
 
 ## Architecture Overview
 
@@ -29,7 +32,7 @@ This is a **Model Context Protocol (MCP) server** that provides intelligent icon
 
 ### Project Structure
 ```
-src/
+src/                        # Local (stdio) MCP server - shared core layers
 ├── cli/                    # CLI runner for standalone execution
 ├── bootstrap/              # Dependency injection and service wiring
 ├── domain/                 # Business logic and entities
@@ -43,9 +46,17 @@ src/
 │   ├── search/             # FlexSearch repository
 │   └── data/               # Data adapters
 ├── interface/              # External interfaces
-│   └── mcp/                # MCP server implementation
+│   └── mcp/                # Local MCP server (SDK v1, stdio)
 └── data/                   # Static data files
-    └── tags.json           # Remix Icon catalog
+    └── tags.json           # Remix Icon catalog (synced from official repo)
+
+worker/                     # Remote (Cloudflare) MCP server
+├── tsconfig.json           # Worker TypeScript config (Workers types)
+└── src/
+    ├── index.ts            # Worker entry: createMcpHandler + Streamable HTTP
+    └── server.ts           # MCP SDK v2 McpServer factory (reuses src/ core)
+
+wrangler.jsonc              # Cloudflare Worker deployment config
 ```
 
 ### Key Components
@@ -65,10 +76,16 @@ src/
 - `TagsToIconsAdapter`: Converts raw tags.json data to Icon entities
 - Document index with field weights for optimized search scoring
 
-**Interface Layer**
-- `IconKeywordServer`: MCP server using @modelcontextprotocol/sdk
+**Interface Layer (Local)**
+- `IconKeywordServer`: MCP server using @modelcontextprotocol/sdk (v1)
 - Exposes single `search_icons` tool
 - JSON-RPC 2.0 communication over stdio
+
+**Worker Layer (Remote)**
+- `worker/src/server.ts`: MCP SDK v2 `McpServer` factory, reuses `src/` core via bootstrap
+- `worker/src/index.ts`: Stateless `createMcpHandler` from `agents/mcp/server`, Streamable HTTP
+- Single tool `search_icons`, same schema and response shape as local
+- Deployed via wrangler to `https://remix-icon-mcp.frad.workers.dev/mcp`
 
 **CLI Layer**
 - `runCli()`: Standalone CLI execution via tsx
@@ -96,6 +113,12 @@ Single tool: `search_icons`
 - Output: Top 5 most relevant icons with metadata
 - Validation: Rejects natural language sentences, accepts keyword lists
 - Response: Human-readable summary + structured metadata
+- Transport: stdio (local) or Streamable HTTP (remote on Cloudflare)
+
+### Data Source
+- `src/data/tags.json` synced from the official `Remix-Design/RemixIcon` repository
+- Current catalog: 20 categories, 1690 base icons (3380 names across line/fill styles)
+- Data is bundled into the worker; no runtime fetch or external storage needed
 
 ## Key Implementation Patterns
 
@@ -132,11 +155,18 @@ Single tool: `search_icons`
 4. Update use case if business logic changes
 5. Add tests for new functionality
 
+### Syncing the Icon Catalog
+- `src/data/tags.json` is synced from the official `Remix-Design/RemixIcon` repo
+- To refresh: download the latest `tags.json` from `https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/tags.json`
+- Run `npm test` and `npm run typecheck` after updating — data is bundled into both the local server and the worker
+- Redeploy the worker (`npm run deploy`) after a data refresh
+
 ### Testing Strategy
 - Unit tests for domain services and entities
 - Integration tests for use cases and repositories
 - CLI tests for MCP interface functionality
 - Mock FlexSearch in unit tests for isolation
+- Worker integration tests in `tests/worker/` use `unstable_dev` to run a real local workerd runtime and exercise the Streamable HTTP MCP protocol end-to-end
 
 ### Code Organization
 - Keep domain layer pure (no external dependencies)
@@ -147,10 +177,16 @@ Single tool: `search_icons`
 ## Performance Considerations
 
 ### Search Optimization
-- **Index Pre-building**: FlexSearch index built once at startup
+- **Index Pre-building**: FlexSearch index built once at startup (or once per isolate in the worker)
 - **Memory Efficiency**: Icon data loaded once, shared across requests
 - **Scoring Cache**: Consistent scoring prevents recalculation
 - **Result Limiting**: Fixed top 5 results control response size
+
+### Worker Performance
+- **Stateless**: `createMcpHandler` creates a fresh server per request; no session state to persist
+- **Bundle Size**: ~244 KB gzipped (FlexSearch + icon data + MCP SDK v2)
+- **Isolate Caching**: FlexSearch index and icon map built once per isolate, reused across requests
+- **Fast Startup**: ~115 ms worker startup time observed at deploy
 
 ### CLI Performance
 - **Minimal Dependencies**: Fast startup time for CLI usage
@@ -166,8 +202,17 @@ Single tool: `search_icons`
 - **Files Included**: Essential source and documentation files
 - **Engine Compatibility**: Node.js >= 18.0.0
 
+### Cloudflare Deployment
+- **Wrangler Config**: `wrangler.jsonc` with `main: worker/src/index.ts`
+- **Worker Entry**: `worker/src/index.ts` with stateless `createMcpHandler`
+- **Deploy**: `npm run deploy` (wrangler deploy) to workers.dev
+- **Endpoint**: `https://remix-icon-mcp.frad.workers.dev/mcp`
+- **Stateless**: No Durable Objects or bindings; FlexSearch index built once per isolate
+- **No Auth**: Public icon-search service; add OAuth via `@cloudflare/workers-oauth-provider` if needed
+
 ### MCP Integration
-- **Claude Desktop**: Configuration via `claude_desktop_config.json`
+- **Claude Desktop**: Configuration via `claude_desktop_config.json` (command for stdio, URL for remote)
 - **Claude Code**: Marketplace plugin or manual `.claude/settings.json`
-- **Stdio Protocol**: Standard MCP JSON-RPC 2.0 communication
+- **Stdio Protocol**: Standard MCP JSON-RPC 2.0 communication (local)
+- **Streamable HTTP**: Remote MCP transport on Cloudflare
 - **Tool Discovery**: Automatic tool registration and metadata
