@@ -1,7 +1,7 @@
 import FlexSearch, { type Document } from "flexsearch";
 import type { IconSearchRepository } from "../../application/ports/icon-search-repository";
-import type { IconMatch, IconMetadata } from "../../domain/entities/icon";
 import { WORD_BOUNDARY } from "../../domain/constants/text-processing";
+import type { IconMatch, IconMetadata } from "../../domain/entities/icon";
 
 const FIELD_WEIGHTS: Record<string, number> = {
   baseName: 8,
@@ -93,11 +93,12 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
     const scores = new Map<string, { score: number; matched: Set<string> }>();
 
     for (const keyword of keywords) {
-      const results = this.document?.search(keyword, {
-        enrich: true,
-        limit,
-        suggest: true,
-      }) ?? [];
+      const results =
+        this.document?.search(keyword, {
+          enrich: true,
+          limit,
+          suggest: true,
+        }) ?? [];
 
       for (const fieldResult of results) {
         for (const entry of fieldResult.result) {
@@ -117,7 +118,7 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
             iconId as string,
             fieldResult.field as string,
             keyword,
-            icon
+            icon,
           );
         }
       }
@@ -131,7 +132,7 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
     iconId: string,
     field: string,
     keyword: string,
-    icon: IconMetadata
+    icon: IconMetadata,
   ): void {
     const current = scores.get(iconId) ?? {
       score: 0,
@@ -151,7 +152,7 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
         // So we default to a reasonable length estimate or just 1.0 if it's a direct hit
         // Ideally we'd find the best matching tag, but for now let's use a simplified approach
         // If any tag is an exact match, use 1.0. Otherwise use a default penalty.
-        fieldValue = val.find(t => t.includes(keyword)) ?? "";
+        fieldValue = val.find((t) => t.includes(keyword)) ?? "";
       }
     }
 
@@ -159,13 +160,13 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
     if (fieldValue) {
       const fieldLower = fieldValue.toLowerCase();
       const keywordLower = keyword.toLowerCase();
-      
+
       if (fieldLower === keywordLower) {
         quality = 1.2; // Boost exact field matches slightly above 1.0
       } else {
         // Calculate ratio
         quality = keywordLower.length / fieldLower.length;
-        
+
         // If it's not a prefix match (mid-word match), penalize further
         if (!fieldLower.startsWith(keywordLower)) {
           quality *= 0.8;
