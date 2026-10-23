@@ -302,6 +302,9 @@ _.seed
 .dev.vars
 .wrangler/
 
+# Docker HTTP MCP verification reports
+.e2e/
+
 # git-agent generated files (never track)
 .git-agent/graph.db
 *.db-shm

@@ -1,0 +1,7 @@
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tests
+!tests/e2e
+!tests/e2e/**

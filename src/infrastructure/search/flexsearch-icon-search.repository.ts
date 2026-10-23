@@ -81,14 +81,13 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
       );
     }
 
-    const scores = this.calculateScores(keywords, limit);
+    const scores = this.calculateScores(keywords);
     const ranked = this.rankResults(scores);
     return ranked.slice(0, limit);
   }
 
   private calculateScores(
     keywords: string[],
-    limit: number,
   ): Map<string, { score: number; matched: Set<string> }> {
     const scores = new Map<string, { score: number; matched: Set<string> }>();
 
@@ -96,7 +95,9 @@ export class FlexSearchIconSearchRepository implements IconSearchRepository {
       const results =
         this.document?.search(keyword, {
           enrich: true,
-          limit,
+          // FlexSearch's field order differs from our relevance ranking.
+          // Score every candidate before applying the requested result limit.
+          limit: this.iconMap.size,
           suggest: true,
         }) ?? [];
 

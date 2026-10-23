@@ -1,3 +1,7 @@
+import {
+  Client,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Unstable_DevWorker } from "wrangler";
 import { unstable_dev } from "wrangler";
@@ -39,10 +43,12 @@ async function mcpRequest(
 
   const sid = res.headers.get("mcp-session-id") ?? sessionId;
   const text = await res.text();
-  const messages = text
-    .split("\n")
-    .filter((line) => line.startsWith("data: "))
-    .map((line) => JSON.parse(line.slice(6))) as JsonRpcMessage[];
+  const messages = res.headers.get("content-type")?.includes("application/json")
+    ? [JSON.parse(text)]
+    : (text
+        .split("\n")
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => JSON.parse(line.slice(6))) as JsonRpcMessage[]);
 
   return { messages, sessionId: sid ?? undefined };
 }
@@ -74,7 +80,20 @@ describe("Cloudflare Remote MCP Worker", () => {
       capabilities?: { tools?: { listChanged?: boolean } };
     };
     expect(result.serverInfo?.name).toBe("remix-icon-keyword-server");
-    expect(result.capabilities?.tools?.listChanged).toBe(true);
+    expect(result.capabilities?.tools).toBeDefined();
+  });
+
+  it("serves health and rejects cross-origin requests", async () => {
+    const health = await worker.fetch("/health");
+    expect(health.status).toBe(200);
+    expect(await health.json()).toMatchObject({ status: "ok" });
+    const rejected = await worker.fetch("/mcp", {
+      method: "POST",
+      headers: { ...MCP_HEADERS, Origin: "https://attacker.example" },
+      body: "{}",
+    });
+    expect(rejected.status).toBe(403);
+    expect((await worker.fetch("/mcp")).status).toBe(405);
   });
 
   it("lists the search_icons tool", async () => {
@@ -121,4 +140,45 @@ describe("Cloudflare Remote MCP Worker", () => {
     const text = result.content?.[0]?.text ?? "";
     expect(text.toLowerCase()).toContain("home");
   }, 30000);
+  it("negotiates the modern protocol with the SDK client", async () => {
+    const client = new Client(
+      { name: "worker-modern-test", version: "1.0.0" },
+      {
+        versionNegotiation: { mode: "auto" },
+      },
+    );
+    const transport = new StreamableHTTPClientTransport(
+      new URL("http://localhost/mcp"),
+      {
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          return worker.fetch(new URL(request.url).pathname, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body ? await request.text() : undefined,
+          });
+        },
+      },
+    );
+    try {
+      await client.connect(transport);
+      expect(client.getProtocolEra()).toBe("modern");
+      expect(client.getNegotiatedProtocolVersion()).toBe("2026-07-28");
+      expect(
+        (await client.listTools()).tools.map((tool) => tool.name),
+      ).toContain("search_icons");
+      const result = await client.callTool({
+        name: "search_icons",
+        arguments: { keywords: "home" },
+      });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({
+        matches: expect.arrayContaining([
+          expect.objectContaining({ name: expect.stringContaining("home") }),
+        ]),
+      });
+    } finally {
+      await client.close();
+    }
+  });
 });

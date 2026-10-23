@@ -1,10 +1,11 @@
-import { createMcpHandler } from "agents/mcp/server";
-import { createServer } from "./server";
+import { createIconMcpServer } from "../../src/bootstrap/mcp-server";
+import { createHttpHandler } from "../../src/interface/http/mcp-handler";
 
-export type Env = Record<string, never>;
+// Only immutable icon metadata is shared; MCP instances are created per request.
+const handler = createHttpHandler({ createServer: createIconMcpServer });
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    return createMcpHandler(createServer)(request, env, ctx);
+  fetch(request: Request): Promise<Response> {
+    return handler(request);
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler;

@@ -35,29 +35,34 @@
 		"LICENSE"
 	],
 	"engines": {
-		"node": ">=18.0.0"
+		"node": ">=20.0.0"
 	},
 	"scripts": {
-		"build": "npm run typecheck",
+		"build": "pnpm typecheck",
 		"typecheck": "tsc --noEmit && tsc --noEmit -p worker/tsconfig.json",
 		"lint": "biome lint --write",
 		"format": "biome format --write",
-		"test": "vitest",
+		"test": "vitest run",
 		"deploy": "wrangler deploy",
-		"dev": "wrangler dev"
+		"dev": "wrangler dev",
+		"start": "tsx src/index.ts",
+		"start:http": "tsx src/index.ts --transport http",
+		"test:watch": "vitest",
+		"test:e2e": "vitest run --config tests/e2e/vitest.config.mts",
+		"test:e2e:docker": "bash tests/e2e/run-docker.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.7",
 		"@cloudflare/workers-types": "^5.20260804.1",
+		"@modelcontextprotocol/client": "2.0.0",
 		"@types/node": "^26.1.2",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.10",
 		"wrangler": "^4.119.0"
 	},
 	"dependencies": {
-		"@modelcontextprotocol/sdk": "^1.30.0",
+		"@hono/node-server": "^2.1.5",
 		"@modelcontextprotocol/server": "2.0.0",
-		"agents": "^0.20.1",
 		"flexsearch": "^0.8.212",
 		"tsx": "^4.23.9",
 		"zod": "^4.4.3"
