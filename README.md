@@ -16,7 +16,7 @@ A Model Context Protocol (MCP) server that maps short keywords to Remix Icon nam
 
 ## Quick start from source
 
-Requires Node.js 20 or later and pnpm. These instructions describe this checkout. npm publication and Worker deployment are separate operations.
+Requires Node.js 22 or later and pnpm for source development and Cloudflare deployment. The installed CLI runtime supports Node.js 20 or later. These instructions describe this checkout. npm publication and Worker deployment are separate operations.
 
 ```bash
 pnpm install
@@ -106,7 +106,7 @@ The existing hosted endpoint is [RemixIcon MCP](https://remix-icon-mcp.frad.work
 claude mcp add --transport http remix-icon https://remix-icon-mcp.frad.workers.dev/mcp
 ```
 
-The HTTP implementation was deployed and verified on October 24, 2026, with Cloudflare version `e41ebb3f-6854-4ccd-9016-d6fef0527b8b` serving 100% of traffic. Real MCP clients passed modern (`2026-07-28`) and legacy (`2025-11-25`) protocol negotiation, tool discovery, search, and concurrent calls. The reported server version is `1.2.0`.
+The HTTP implementation was deployed and verified on October 24, 2026, with Cloudflare version `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` serving 100% of traffic. Real MCP clients passed modern (`2026-07-28`) and legacy (`2025-11-25`) protocol negotiation, tool discovery, search, and concurrent calls. The reported server version is `1.2.0`; the deployed MCP SDK is `2.3.0`, including the current security fixes.
 
 Use the endpoint in an MCP client. Opening `/mcp` in a browser sends `GET` and returns `405` as expected; use [/health](https://remix-icon-mcp.frad.workers.dev/health) for a browser health check. Future local edits do not update the hosted service until deployment:
 

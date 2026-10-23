@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Rank all matching icons before applying the result limit, so stronger matches are not excluded by preliminary index ordering.
+- Update the MCP SDK, test runner, deployment tools, and affected transitive dependencies to patched versions. Keep the test toolchain on Vite 7 and document the deployment tooling's Node.js 22 minimum.
 
 
 ## [1.2.0] - 2026-03-10

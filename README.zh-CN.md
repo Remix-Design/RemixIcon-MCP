@@ -16,7 +16,7 @@
 
 ## 从源码快速启动
 
-需要 Node.js 20 或更高版本及 pnpm。以下说明针对当前源码。npm 发布与 Worker 部署分别执行。
+源码开发和 Cloudflare 部署需要 Node.js 22 或更高版本及 pnpm。安装后的 CLI 运行时支持 Node.js 20 或更高版本。以下说明针对当前源码。npm 发布与 Worker 部署分别执行。
 
 ```bash
 pnpm install
@@ -106,7 +106,7 @@ claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
 claude mcp add --transport http remix-icon https://remix-icon-mcp.frad.workers.dev/mcp
 ```
 
-HTTP 实现已于 2026 年 10 月 24 日部署并完成线上验证。Cloudflare 版本 `e41ebb3f-6854-4ccd-9016-d6fef0527b8b` 承接 100% 流量；真实 MCP 客户端的新协议（`2026-07-28`）及旧协议（`2025-11-25`）协商、工具发现、搜索和并发调用均通过。服务报告版本为 `1.2.0`。
+HTTP 实现已于 2026 年 10 月 24 日部署并完成线上验证。Cloudflare 版本 `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` 承接 100% 流量；真实 MCP 客户端的新协议（`2026-07-28`）及旧协议（`2025-11-25`）协商、工具发现、搜索和并发调用均通过。服务报告版本为 `1.2.0`，部署的 MCP SDK 为包含当前安全修复的 `2.3.0`。
 
 请在 MCP 客户端中使用该端点。浏览器直接打开 `/mcp` 会发送 `GET` 并按预期返回 `405`；浏览器健康检查可访问 [/health](https://remix-icon-mcp.frad.workers.dev/health)。后续本地修改需要再次部署才会更新托管服务：
 

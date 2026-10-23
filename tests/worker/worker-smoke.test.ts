@@ -2,7 +2,7 @@ import {
   Client,
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Unstable_DevWorker } from "wrangler";
 import { unstable_dev } from "wrangler";
 
@@ -56,6 +56,13 @@ async function mcpRequest(
 describe("Cloudflare Remote MCP Worker", () => {
   let worker: Unstable_DevWorker;
 
+  beforeAll(async () => {
+    worker = await unstable_dev("worker/src/index.ts", {
+      config: "./wrangler.jsonc",
+      experimental: { disableExperimentalWarning: true },
+    });
+  }, 30000);
+
   afterAll(async () => {
     if (worker) {
       await worker.stop();
@@ -63,11 +70,6 @@ describe("Cloudflare Remote MCP Worker", () => {
   });
 
   it("serves the MCP endpoint over Streamable HTTP", async () => {
-    worker = await unstable_dev("worker/src/index.ts", {
-      config: "./wrangler.jsonc",
-      experimental: { disableExperimentalWarning: true },
-    });
-
     const init = await mcpRequest(worker, "initialize", {
       protocolVersion: "2025-03-26",
       capabilities: {},
@@ -97,11 +99,6 @@ describe("Cloudflare Remote MCP Worker", () => {
   });
 
   it("lists the search_icons tool", async () => {
-    worker ??= await unstable_dev("worker/src/index.ts", {
-      config: "./wrangler.jsonc",
-      experimental: { disableExperimentalWarning: true },
-    });
-
     const init = await mcpRequest(worker, "initialize", {
       protocolVersion: "2025-03-26",
       capabilities: {},
@@ -116,11 +113,6 @@ describe("Cloudflare Remote MCP Worker", () => {
   }, 30000);
 
   it("calls search_icons and returns icon matches", async () => {
-    worker ??= await unstable_dev("worker/src/index.ts", {
-      config: "./wrangler.jsonc",
-      experimental: { disableExperimentalWarning: true },
-    });
-
     const init = await mcpRequest(worker, "initialize", {
       protocolVersion: "2025-03-26",
       capabilities: {},

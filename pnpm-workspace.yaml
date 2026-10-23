@@ -1,3 +1,7 @@
 allowBuilds:
   esbuild: true
   workerd: true
+
+# Keep the test toolchain on patched Vite 7 releases.
+overrides:
+  vite: ^7.3.7
