@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+overrides:
+  # SDK v1 also permits adapter v2, which requires Node 20.
+  "@modelcontextprotocol/sdk>@hono/node-server": ^1.19.17
+  # Keep Vitest's Vite peer on the patched 7.x line used by this branch.
+  vite: ^7.3.7
