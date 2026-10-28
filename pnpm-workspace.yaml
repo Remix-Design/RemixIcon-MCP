@@ -1,7 +1,12 @@
 allowBuilds:
   esbuild: true
+  workerd: true
+
+# Use the patched Wrangler/Miniflare pair without a broad release-age bypass.
+minimumReleaseAgeExclude:
+  - miniflare@5.20261023.1-beta
+  - wrangler@4.154.0
+
+# Keep the test toolchain on patched Vite 7 releases.
 overrides:
-  # SDK v1 also permits adapter v2, which requires Node 20.
-  "@modelcontextprotocol/sdk>@hono/node-server": ^1.19.17
-  # Keep Vitest's Vite peer on the patched 7.x line used by this branch.
   vite: ^7.3.7

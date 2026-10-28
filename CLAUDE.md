@@ -1,173 +1,54 @@
-# CLAUDE.md
+# Claude Code repository guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Authoritative guidance
 
-## Development Commands
+Follow [AGENTS.md](AGENTS.md) for repository conventions. Read [README.md](README.md) for CLI and HTTP contracts, [CHANGELOG.md](CHANGELOG.md) for changes, and [RELEASE.md](RELEASE.md) when preparing or verifying a release.
 
-### Essential Commands
-- `npm run build` - Run TypeScript compiler check (tsc --noEmit)
-- `npm run typecheck` - Same as build, strict TypeScript checking
-- `npm run lint` - Run Biome linter with auto-fix
-- `npm run format` - Format code with Biome
-- `npm test` - Run tests with Vitest
+## Commands
 
-### Testing
-- Tests use Vitest with Node environment
-- Test files located in `tests/` directory
-- Configuration in `vitest.config.mts`
-- Single test execution: `vitest run specific.test.ts`
+Use pnpm consistently:
 
-### CLI Usage
-- `npx remixicon-mcp` - Run MCP server directly via stdio
-- `npm install -g remixicon-mcp` - Install as global CLI tool
-- Local testing: `node bin/run.cjs` or `tsx src/cli/run.ts`
-
-## Architecture Overview
-
-### Core Structure
-This is a **Model Context Protocol (MCP) server** that provides intelligent icon search for Remix Icons. The architecture follows Clean Architecture principles with clear separation between domain logic, application services, infrastructure, and interface layers.
-
-### Project Structure
-```
-src/
-├── cli/                    # CLI runner for standalone execution
-├── bootstrap/              # Dependency injection and service wiring
-├── domain/                 # Business logic and entities
-│   ├── entities/           # Core data models (Icon)
-│   ├── services/           # Domain services (KeywordParser)
-│   └── constants/          # Text processing constants
-├── application/            # Use cases and ports
-│   ├── use-cases/          # Business logic orchestration
-│   └── ports/              # Repository interfaces
-├── infrastructure/         # External implementations
-│   ├── search/             # FlexSearch repository
-│   └── data/               # Data adapters
-├── interface/              # External interfaces
-│   └── mcp/                # MCP server implementation
-└── data/                   # Static data files
-    └── tags.json           # Remix Icon catalog
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm lint
+pnpm format
+pnpm build
+pnpm audit
+pnpm audit --prod
 ```
 
-### Key Components
+`pnpm test` runs once. `pnpm test:watch` starts watch mode. `pnpm test:e2e:docker` runs live HTTP tests against the configured endpoint; set `MCP_E2E_URL` to a local candidate when validating unreleased changes. The default endpoint is a deployed service, not the checkout.
 
-**Domain Layer**
-- `Icon` entity: Core icon metadata model with name, tags, category, usage
-- `KeywordParser` service: Validates and parses comma-separated keywords (max 20)
-- Text processing constants for Unicode-aware keyword validation
+The installed CLI runtime requires Node.js 20 or later. The complete source-development and test workflow requires Node.js 22.12 or later because the locked Vite toolchain requires it. Wrangler deployment tooling itself requires Node.js 22 or later.
 
-**Application Layer**
-- `SearchIconsUseCase`: Orchestrates icon search workflow
-- `IconSearchRepository` port: Abstract interface for search repositories
-- Validates input, delegates to repository, formats results
+## Architecture
 
-**Infrastructure Layer**
-- `FlexSearchIconSearchRepository`: FlexSearch-based implementation
-- `TagsToIconsAdapter`: Converts raw tags.json data to Icon entities
-- Document index with field weights for optimized search scoring
+Dependencies point inward: interfaces handle transport, infrastructure implements application-owned ports, application orchestrates use cases, and domain owns search rules. Bootstrap wires dependencies. The bundled `src/data/tags.json` is read-only at runtime.
 
-**Interface Layer**
-- `IconKeywordServer`: MCP server using @modelcontextprotocol/sdk
-- Exposes single `search_icons` tool
-- JSON-RPC 2.0 communication over stdio
+- `src/domain/`: icon entities, keyword validation, and text constants.
+- `src/application/`: search use case and repository port.
+- `src/infrastructure/`: catalog adapter and FlexSearch repository.
+- `src/bootstrap/`: search index, MCP server factories, and transport options.
+- `src/interface/mcp/`: shared MCP SDK v2 tool registration and stdio.
+- `src/interface/http/`: shared HTTP request handling and Node adapter.
+- `src/cli/run.ts`: option parsing and process lifecycle.
+- `bin/run.cjs`: executable launcher using the production tsx dependency.
+- `worker/src/index.ts`: Cloudflare entry point using the shared HTTP handler.
 
-**CLI Layer**
-- `runCli()`: Standalone CLI execution via tsx
-- `bin/run.cjs`: Node.js wrapper for npx compatibility
+Stdio remains the default. Node HTTP is opt-in through `--transport http`; Cloudflare serves Streamable HTTP. Modern and legacy clients share the same tool and ranked search behavior. There is no standalone `/sse` endpoint or persistent MCP session.
 
-### Data Flow
-1. Icon catalog loaded from `src/data/tags.json`
-2. TagsToIconsAdapter converts raw data to Icon entities
-3. FlexSearch repository builds document index on initialization
-4. KeywordParser validates input keywords (max 20, comma-separated)
-5. SearchIconsUseCase coordinates search workflow
-6. FlexSearch performs weighted search across name, tags, category, usage
-7. Results formatted for MCP response (always top 5)
+## Tests and contracts
 
-### Search Configuration
-FlexSearch document index with optimized weights:
-- Name matching: Highest priority for exact icon names
-- Tags matching: Keyword relevance scoring
-- Category matching: Icon categorization scoring
-- Usage matching: Common usage patterns scoring
+Tests mirror the source layers. Public CLI transport tests cover stdio and HTTP; Worker smoke tests use a real local workerd runtime. Do not replace public contract checks with mocks of internal search collaborators.
 
-### MCP Interface
-Single tool: `search_icons`
-- Input: `keywords` string (comma-separated, max 20 keywords)
-- Output: Top 5 most relevant icons with metadata
-- Validation: Rejects natural language sentences, accepts keyword lists
-- Response: Human-readable summary + structured metadata
+`search_icons` accepts a nonempty string of at most 200 characters and at most 20 comma-separated keywords. Reject sentences. Return zero to five ranked matches, readable content, and structured metadata. Preserve `matches[].name`, error behavior, and concurrency isolation unless an explicitly approved change alters them.
 
-## Key Implementation Patterns
+Score all candidates before applying the result limit. Load the catalog once per process or Worker isolate. Do not fetch catalog data or credentials during searches.
 
-### Clean Architecture
-- **Dependency Rule**: Dependencies point inward (Infrastructure → Application → Domain)
-- **Port-Adapter Pattern**: Application defines ports, Infrastructure provides adapters
-- **Use Case Orchestration**: Application layer coordinates business workflows
-- **Entity Isolation**: Domain models contain only business logic
+## Distribution and deployment
 
-### Search Architecture
-- **Document Index**: FlexSearch with pre-built index for performance
-- **Field Weighting**: Configurable weights for different icon properties
-- **Token Matching**: Unicode-aware tokenization for multi-language support
-- **Deterministic Scoring**: Consistent relevance scoring for reproducible results
+The npm package contains the executable, TypeScript runtime source, bundled metadata, license, README files, changelog, and release notes. Verify the tarball outside the checkout with production dependencies only. Do not infer package correctness from source tests alone.
 
-### Input Validation
-- **Keyword Limits**: Maximum 20 keywords to prevent abuse
-- **Format Detection**: Distinguishes keyword lists from natural language
-- **Unicode Support**: Proper handling of international characters
-- **Error Handling**: Clear validation messages for invalid inputs
-
-### CLI Design
-- **Stdio Communication**: JSON-RPC 2.0 over stdin/stdout
-- **Graceful Error Handling**: Proper error responses and logging
-- **Process Management**: Clean startup/shutdown procedures
-- **Wrapper Compatibility**: Node.js wrapper for npx execution
-
-## Development Guidelines
-
-### Adding New Search Features
-1. Extend `Icon` entity in `src/domain/entities/icon.ts`
-2. Update `TagsToIconsAdapter` to handle new data fields
-3. Modify FlexSearch configuration in repository
-4. Update use case if business logic changes
-5. Add tests for new functionality
-
-### Testing Strategy
-- Unit tests for domain services and entities
-- Integration tests for use cases and repositories
-- CLI tests for MCP interface functionality
-- Mock FlexSearch in unit tests for isolation
-
-### Code Organization
-- Keep domain layer pure (no external dependencies)
-- Infrastructure implements application ports
-- Use dependency injection via bootstrap layer
-- Maintain single responsibility principle throughout
-
-## Performance Considerations
-
-### Search Optimization
-- **Index Pre-building**: FlexSearch index built once at startup
-- **Memory Efficiency**: Icon data loaded once, shared across requests
-- **Scoring Cache**: Consistent scoring prevents recalculation
-- **Result Limiting**: Fixed top 5 results control response size
-
-### CLI Performance
-- **Minimal Dependencies**: Fast startup time for CLI usage
-- **Efficient Parsing**: Quick keyword validation and tokenization
-- **Stream Processing**: JSON-RPC responses streamed efficiently
-- **Memory Management**: Proper cleanup and resource management
-
-## Deployment and Distribution
-
-### NPM Package
-- **Bin Entry**: `bin/run.cjs` for CLI execution
-- **Main Entry**: `src/index.ts` for library usage
-- **Files Included**: Essential source and documentation files
-- **Engine Compatibility**: Node.js >= 18.0.0
-
-### MCP Integration
-- **Claude Desktop**: Configuration via `claude_desktop_config.json`
-- **Claude Code**: Marketplace plugin or manual `.claude/settings.json`
-- **Stdio Protocol**: Standard MCP JSON-RPC 2.0 communication
-- **Tool Discovery**: Automatic tool registration and metadata
+`pnpm dev` runs a local Worker preview. `pnpm deploy` writes to Cloudflare and requires explicit authorization. npm publication, remote branch updates, release tags, and Worker deployment are separate operations; preparation does not authorize them. Never claim the hosted endpoint has an unreleased source version.

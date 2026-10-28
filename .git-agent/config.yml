@@ -1,0 +1,11 @@
+scopes:
+    - name: bin
+      description: Executable scripts and command entry points in bin/; does not cover core application logic
+    - name: src
+      description: Core application, domain logic, and infrastructure within src/; does not cover tests or worker deployments
+    - name: tests
+      description: Integration, unit, and smoke tests located in tests/; does not cover production application code
+    - name: worker
+      description: Cloudflare worker implementation and server logic in worker/; does not cover local CLI commands or core domain models
+    - name: cp
+      description: Claude plugin marketplace metadata in .claude-plugin/; does not cover core application or worker logic

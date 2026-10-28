@@ -6,14 +6,14 @@
 	},
 	"metadata": {
 		"description": "Official Remix Icon MCP server providing intelligent icon search and discovery with semantic matching",
-		"version": "1.0.0"
+		"version": "2.0.0"
 	},
 	"plugins": [
 		{
 			"name": "remix-icon-mcp",
 			"source": "./",
 			"description": "A Model Context Protocol server for Remix Icon search with FlexSearch-powered semantic matching. Maps icon-focused keywords to Remix Icon metadata, providing top 5 most relevant icons with clean architecture and local search.",
-			"version": "1.0.0",
+			"version": "2.0.0",
 			"author": {
 				"name": "Remix-Design",
 				"url": "https://github.com/Remix-Design"

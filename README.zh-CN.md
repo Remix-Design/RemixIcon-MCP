@@ -1,60 +1,97 @@
-# RemixIcon MCP
+# RemixIcon MCP ![](https://img.shields.io/npm/v/remixicon-mcp)
 
-![NPM Version](https://img.shields.io/npm/v/remixicon-mcp) ![NPM License](https://img.shields.io/npm/l/remixicon-mcp) ![NPM Downloads](https://img.shields.io/npm/dt/remixicon-mcp)
+[![npm downloads](https://img.shields.io/npm/dt/remixicon-mcp)](https://www.npmjs.com/package/remixicon-mcp) [![License: MIT](https://img.shields.io/npm/l/remixicon-mcp)](https://opensource.org/licenses/MIT)
 
-[English](README.md) | 简体中文
+[English](README.md) | **简体中文**
 
-一个轻量级的 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）服务器：用户提供简洁的图标关键词（最多 20 个），服务器即返回最相关的 5 个 Remix Icon 名称与元数据——采用 Clean Architecture 架构与 FlexSearch 本地搜索。
+一个将简短关键词映射到 Remix Icon 名称的 Model Context Protocol（MCP）服务器。输入最多 20 个英文逗号分隔的关键词，返回最多 5 个排序后的匹配结果。
 
 ## 特性
 
-- **智能关键词输入**：支持最多 20 个逗号分隔的关键词，同时自动拒绝自然语言描述以确保最佳搜索质量。
-- **固定返回前 5 结果**：始终返回最相关的 5 个图标，帮助用户聚焦决策。
-- **FlexSearch 索引**：使用 FlexSearch v0.8 文档索引在本地构建高速检索。
-- **Clean Architecture 分层**：领域、应用、基础设施、接口层各自独立，易于测试与扩展。
-- **CLI 就绪**：可通过 `npx remixicon-mcp` 作为独立 CLI 工具运行，或集成到 MCP 客户端。
-- **LLM 友好的输出**：返回排序候选、命中的 token，并提示模型从结果中只选择一个图标。
+- 本地 stdio、本地 Node.js Streamable HTTP 和 Cloudflare Workers HTTP 共享同一个 MCP SDK v2 服务器与搜索实现。
+- 使用内置 FlexSearch 索引及中英文图标标签，搜索无需外部 API 或凭据。
+- 同时返回可读文本和结构化结果，包含名称、得分、分类、样式和命中关键词。
+- 先对所有匹配候选评分，再选取最相关的结果。
+- HTTP 支持当前 MCP 协议及 2025 年版 Streamable HTTP 客户端。当前协议请求返回 JSON，旧版请求使用请求范围内的 SSE；无独立 SSE 端点或持久会话。
 
-## 快速开始
+## 2.0.0 发布候选与迁移
 
-### 安装
+当前源码正在准备 2.0.0，尚未发布或部署。准备时 GitHub 最新发布为 1.2.0，npm 的 `latest` 仍为 1.1.0。下方不带版本号的 `npx` 命令运行已发布包，而非此候选版本。
+
+- 将安装后的 CLI 运行环境从 Node.js 18 升级到 Node.js 20 或更高版本；完整源码开发与测试流程需要 Node.js 22.12 或更高版本；Wrangler 部署工具本身需要 Node.js 22 或更高版本。
+- 原有 stdio 客户端配置可以保留，默认仍使用 stdio；通过 `--transport http` 或 MCP URL 显式使用 HTTP。
+- 继续读取 `matches[].name`；结构化结果额外包含得分、分类、样式和命中关键词。
+- 服务器使用 MCP SDK v2。HTTP 支持新旧 Streamable HTTP 协议协商，但不提供旧式独立 `/sse` 端点或持久会话。
+- npm 发布和 Worker 部署分别执行；已有托管端点在另行部署前仍报告 1.2.0。
+
+版本变化见 [CHANGELOG.md](CHANGELOG.md)，准备范围与验证说明见源码中的 [RELEASE.md](RELEASE.md)。
+
+## 从源码快速启动
+
+完整源码开发与测试流程请使用 Node.js 22.12 或更高版本及 pnpm；Wrangler 本身需要 Node.js 22 或更高版本。安装后的 CLI 运行时支持 Node.js 20 或更高版本。以下说明针对当前源码。npm 发布与 Worker 部署分别执行。
 
 ```bash
-# 全局安装 CLI 工具
-npm install -g remixicon-mcp
-
-# 或使用 npx 直接运行
-npx remixicon-mcp
-
-# 开发环境
 pnpm install
-pnpm typecheck
-pnpm test
+
+# 在 http://127.0.0.1:3000/mcp 启动 HTTP 服务
+pnpm start:http
 ```
 
-### 使用
-
-#### 作为独立 CLI 工具
-
-你可以通过 stdio 直接运行 MCP 服务器进行测试或集成：
+保持服务运行，在支持 URL 的 MCP 客户端中配置 `http://127.0.0.1:3000/mcp`。Claude Code 可使用：
 
 ```bash
-# 使用 npx 运行
-npx remixicon-mcp
-
-# 或全局安装后运行
-remixicon-mcp
+claude mcp add --transport http remix-icon http://127.0.0.1:3000/mcp
 ```
 
-## 平台配置
+使用 stdio 则运行：
 
-### Claude Desktop
+```bash
+pnpm start
+```
 
-**配置方式**
-将以下配置添加到 `claude_desktop_config.json`：
+### CLI 与配置
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+安装 CLI 后，默认仍使用 stdio：
+
+```bash
+remixicon-mcp
+remixicon-mcp --transport http --host 127.0.0.1 --port 3000
+```
+
+直接运行当前源码时也支持这些参数：
+
+```bash
+pnpm exec tsx src/index.ts --transport http --host 127.0.0.1 --port 3000
+```
+
+| CLI 参数 | 环境变量 | 默认值 |
+| --- | --- | --- |
+| `--transport` | `MCP_TRANSPORT` | `stdio` |
+| `--host` | `MCP_HOST` | `127.0.0.1` |
+| `--port` | `MCP_PORT` | `3000` |
+
+CLI 参数优先于环境变量。Node HTTP 可通过 `MCP_ALLOWED_ORIGINS` 额外允许浏览器来源，填写英文逗号分隔的精确来源，例如 `https://icons.example.com,http://localhost:5173`。来源包含协议及可选端口，不包含路径或末尾斜杠。默认允许同源请求及不带 `Origin` 请求头的原生客户端，拒绝其他浏览器来源。
+
+默认只接受本机连接。若需其他机器访问，显式设置 `--host 0.0.0.0`。这是无需鉴权的公开图标搜索服务；对外提供服务时，请通过反向代理配置 TLS 及所需的访问控制。
+
+### HTTP 端点
+
+| 端点 | 方法 | 行为 |
+| --- | --- | --- |
+| `/mcp` | `POST`、`OPTIONS` | MCP 请求及浏览器预检 |
+| `/health` | `GET` | JSON 健康状态 |
+
+`POST /mcp` 要求 `Content-Type: application/json`，请求体上限为 16 KiB。`GET /mcp` 和 `DELETE /mcp` 返回 `405`。服务不提供旧式 `/sse` 端点，也不要求持久会话。
+
+### 已发布的 stdio 包
+
+stdio 客户端可使用已发布的包：
+
+```bash
+npx -y remixicon-mcp
+```
+
+Claude Desktop：在 `claude_desktop_config.json` 中添加以下配置，然后重启应用：
 
 ```json
 {
@@ -67,76 +104,33 @@ remixicon-mcp
 }
 ```
 
-**设置步骤**
-1. 保存配置文件
-2. 完全退出并重启 Claude Desktop
-3. `search_icons` 工具将在对话中可用
+Claude Code：
 
-### Claude Code
-
-**选项 1：Marketplace 插件（推荐）**
 ```bash
-# 在 Claude Code 中添加 marketplace 插件
-/plugin marketplace add Remix-Design/remixicon-mcp
-```
-
-优势：
-- 自动安装和更新
-- 完整的插件元数据和版本管理
-- 丰富的关键词和分类发现
-- 与 Claude Code 插件生态系统的完整集成
-
-**选项 2：手动配置**
-```bash
-# 快速命令行设置
 claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
 ```
 
-或在项目的 `.claude/settings.json` 中手动添加：
-```json
-{
-  "mcp": {
-    "servers": {
-      "remix-icon": {
-        "command": "npx",
-        "args": ["-y", "remixicon-mcp"]
-      }
-    }
-  }
-}
-```
+### Cloudflare Workers
 
-**设置步骤**
-1. 选择上述任一安装方式
-2. 重启 Claude Code 使更改生效
-3. `search_icons` 工具将在会话中可用
+已有托管端点为 [RemixIcon MCP](https://remix-icon-mcp.frad.workers.dev/mcp)。在支持 URL 的 MCP 客户端中填写该地址，或使用：
 
-### Codex
-
-**配置方式**
 ```bash
-# 快速命令行设置
-codex mcp add remixicon -- npx -y remixicon-mcp
+claude mcp add --transport http remix-icon https://remix-icon-mcp.frad.workers.dev/mcp
 ```
 
-**设置步骤**
-1. 运行上述安装命令
-2. 重启 Codex 使更改生效
-3. `search_icons` 工具将在对话中可用
+HTTP 实现已于 2026 年 10 月 24 日部署并完成线上验证。Cloudflare 版本 `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` 承接 100% 流量；真实 MCP 客户端的新协议（`2026-07-28`）及旧协议（`2025-11-25`）协商、工具发现、搜索和并发调用均通过。服务报告版本为 `1.2.0`，部署的 MCP SDK 为 `2.3.0`。这记录的是上次部署，不代表本次候选版本已部署或其依赖审计结果。
 
-## 可用工具
+请在 MCP 客户端中使用该端点。浏览器直接打开 `/mcp` 会发送 `GET` 并按预期返回 `405`；浏览器健康检查可访问 [/health](https://remix-icon-mcp.frad.workers.dev/health)。后续本地修改需要再次部署才会更新托管服务：
 
-服务器通过官方 `@modelcontextprotocol/sdk` 以 stdio + JSON-RPC 2.0 通信，仅提供一个工具：
+```bash
+pnpm dev       # 本地预览 Worker
+pnpm run deploy # 发布到 Cloudflare Workers
+```
 
-### `search_icons`
+## 工具：`search_icons`
 
-**输入**：`keywords` 字符串（逗号分隔，最多 20 个关键词）  
-**输出**：最相关的 5 个图标及其元数据  
-**格式**：可读摘要 + 结构化元数据
+输入：`keywords`，非空字符串，最长 200 个字符，最多包含 20 个英文逗号分隔的关键词。请使用简短关键词，避免完整句子。
 
-### 使用示例
-
-**JSON-RPC 调用：**
 ```json
 {
   "jsonrpc": "2.0",
@@ -144,55 +138,63 @@ codex mcp add remixicon -- npx -y remixicon-mcp
   "method": "tools/call",
   "params": {
     "name": "search_icons",
-    "arguments": {
-      "keywords": "layout, grid, design"
-    }
+    "arguments": { "keywords": "layout, grid, design" }
   }
 }
 ```
 
-**示例响应：**
-服务器返回与关键词匹配的最相关 5 个图标，包含名称、分类和使用信息。
+成功响应同时包含可读的 `content` 和结构化的 `structuredContent`。所有传输方式共享以下输出结构：
+
+```typescript
+{
+  guidance: string;
+  matches: Array<{
+    name: string;
+    score: number;
+    category: string;
+    style: string;
+    matchedKeywords: string[];
+  }>;
+}
+```
+
+`matches` 包含零至五项。已有客户端仍可读取 `matches[].name`，新增字段用于说明排序及命中的目录词项。无效关键词输入返回工具错误。工具注解声明搜索为只读且幂等。
 
 ## 项目结构
 
-```
-.
-├── bin/
-│   └── run.cjs                     # CLI 入口，用于 npx 执行
-├── src/
-│   ├── cli/                        # CLI 运行器实现
-│   ├── bootstrap/                  # 装配依赖，维持 Clean Architecture 分层
-│   ├── domain/                     # 图标实体与关键词解析器
-│   ├── application/                # 搜索用例，负责校验与排序
-│   ├── infrastructure/search/      # 基于 FlexSearch 的搜索实现
-│   ├── interface/mcp/              # 使用 @modelcontextprotocol/sdk 构建的 MCP 服务器
-│   └── data/tags.json              # Remix Icon 搜索标签
-├── tests/                          # Vitest 测试用例
-├── .claude-plugin/
-│   └── marketplace.json            # Claude Code 插件发现的 Marketplace 元数据
-├── package.json                    # pnpm 脚本配置
-└── tsconfig.json                   # 严格的 TypeScript 配置（含 Node 类型）
+```text
+bin/run.cjs                    CLI 启动器
+src/cli/                       CLI 参数及进程生命周期
+src/bootstrap/                 依赖装配及共享搜索索引
+src/domain/                    图标实体与关键词解析器
+src/application/               搜索用例与仓库端口
+src/infrastructure/            FlexSearch 仓库与数据适配器
+src/interface/mcp/             共享 SDK v2 工具注册
+src/interface/http/            共享 HTTP 路由与请求检查
+src/data/tags.json             内置 Remix Icon 元数据
+worker/src/index.ts            Cloudflare HTTP 入口
+wrangler.jsonc                 Cloudflare 配置
+tests/                         单元、传输及集成测试
 ```
 
-## 实现说明
-
-- 关键词解析器支持最多 20 个逗号分隔的关键词，同时在检测到句子式输入时直接拒绝。
-- 增强的检测逻辑能够区分关键词列表（带分隔符）和自然语言句子（空格分隔的短语）。
-- FlexSearch 对图标名称、标签、用途、分类等字段建索引，结合字段权重与 token 命中计算得分。
-- 固定返回前 5 个结果，提供聚焦且相关的匹配结果，无需复杂配置。
-- 应用层组合解析、仓库查询与响应格式化，接口层只负责传输协议。
-- MCP 响应同时提供可读提示与机器可消费的结果，确保 LLM 只选择单个图标。
-- CLI 运行器支持通过 `npx` 或全局安装独立执行，方便集成。
-
-## 开发脚本
+## 开发
 
 ```bash
-pnpm typecheck   # 类型检查（tsc --noEmit）
-pnpm test        # 运行 Vitest
-pnpm exec biome check --write --unsafe   # 使用 Biome 自动修复格式与 lint
+pnpm start        # Node stdio 服务
+pnpm start:http   # Node HTTP 服务
+pnpm typecheck    # Node 与 Worker 类型检查
+pnpm test         # 单次运行单元与本地集成测试
+pnpm test:watch   # 开发时监听测试
+pnpm run test:e2e:docker # 从 Docker 检查线上 HTTP MCP
+pnpm lint         # Biome lint 自动修复
+pnpm format       # Biome 格式化
+pnpm build        # 构建验证
 ```
+
+Docker 命令使用 Linux 客户端，对 `https://remix-icon-mcp.frad.workers.dev/mcp` 执行九个用例，覆盖新旧协议协商、工具发现、搜索、无结果、非法输入恢复、并发请求、客户端隔离及 HTTP 限制。设置 `MCP_E2E_URL` 可检查其他部署。测试使用锁定依赖，不复制宿主机凭据或依赖目录，运行后删除本次测试容器。每次结果分别保存在 `.e2e/docker-http/` 下的独立目录，包含 `report.json` 与 `runtime.json`。这些线上检查与 `pnpm test` 分开执行。
+
+`src/data/tags.json` 是来自 [RemixIcon 官方目录](https://github.com/Remix-Design/RemixIcon/blob/master/tags.json) 的内置元数据。刷新时从该来源更新文件，运行测试及类型检查，并在发布包或部署 Worker 前审查修改。服务运行时只读使用该文件。
 
 ## 许可证
 
-[MIT License](LICENSE)
+[MIT](LICENSE)

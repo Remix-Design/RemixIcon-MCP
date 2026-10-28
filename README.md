@@ -1,60 +1,97 @@
-# RemixIcon MCP
+# RemixIcon MCP ![](https://img.shields.io/npm/v/remixicon-mcp)
 
-![NPM Version](https://img.shields.io/npm/v/remixicon-mcp) ![NPM License](https://img.shields.io/npm/l/remixicon-mcp) ![NPM Downloads](https://img.shields.io/npm/dt/remixicon-mcp)
+[![npm downloads](https://img.shields.io/npm/dt/remixicon-mcp)](https://www.npmjs.com/package/remixicon-mcp) [![License: MIT](https://img.shields.io/npm/l/remixicon-mcp)](https://opensource.org/licenses/MIT)
 
-English | [简体中文](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md)
 
-A lightweight [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that maps icon-focused keywords directly to Remix Icon metadata. Provide concise keywords (up to 20), receive the top 5 matching icon names and metadata – clean architecture with FlexSearch-powered local search.
+A Model Context Protocol (MCP) server that maps short keywords to Remix Icon names. Search with up to 20 comma-separated keywords and receive up to 5 ranked matches.
 
 ## Features
 
-- **Smart Keyword Input** – Supports up to 20 comma-separated keywords while rejecting natural-language sentences for optimal search quality.
-- **Fixed Top-5 Results** – Returns exactly 5 most relevant icons for focused decision-making.
-- **FlexSearch-backed Index** – Uses FlexSearch v0.8's document index for high-performance token lookup over the local Remix Icon catalog.
-- **Clean Architecture** – Domain entities, application use cases, infrastructure adapters, and MCP interface remain isolated for easy testing.
-- **CLI Ready** – Can be run as a standalone CLI tool via `npx remixicon-mcp` or integrated into MCP clients.
-- **LLM-ready Responses** – Returns ranked candidates, matched tokens, and explicit guidance instructing the model to choose exactly one icon.
+- Local stdio, local Node.js Streamable HTTP, and Cloudflare Workers HTTP share one MCP SDK v2 server and search implementation.
+- Uses a bundled FlexSearch index with English and Chinese icon tags; no external API or credentials are needed for search.
+- Returns readable text and structured results with names, scores, categories, styles, and matched keywords.
+- Scores all matching candidates before selecting the top results.
+- HTTP supports current MCP and legacy 2025 Streamable HTTP clients. Modern requests receive JSON responses; legacy requests use request-scoped SSE. There is no standalone SSE endpoint or persistent session.
 
-## Quick Start
+## 2.0.0 release candidate and migration
 
-### Installation
+This checkout prepares 2.0.0; it has not been published or deployed. At preparation time, GitHub's latest release is 1.2.0 and npm's `latest` is 1.1.0. Unversioned `npx` commands below run the published package, not this candidate.
+
+- Upgrade the installed CLI runtime from Node.js 18 to Node.js 20 or later. The complete source-development and test workflow requires Node.js 22.12 or later. Wrangler deployment tooling requires Node.js 22 or later.
+- Keep existing stdio client configurations; stdio remains the default. HTTP is opt-in through `--transport http` or a configured MCP URL.
+- Keep reading `matches[].name`. Structured results also include scores, categories, styles, and matched keywords.
+- The server uses MCP SDK v2. HTTP supports modern and legacy Streamable HTTP negotiation, but not the old standalone `/sse` transport or persistent sessions.
+- Package publication and Worker deployment are independent. The existing hosted endpoint continues to report 1.2.0 until separately deployed.
+
+See [CHANGELOG.md](CHANGELOG.md) for release changes and [RELEASE.md](RELEASE.md) in the source checkout for preparation and verification details.
+
+## Quick start from source
+
+Use Node.js 22.12 or later and pnpm for the complete source-development and test workflow. Wrangler itself requires Node.js 22 or later. The installed CLI runtime supports Node.js 20 or later. These instructions describe this checkout. npm publication and Worker deployment are separate operations.
 
 ```bash
-# Install as CLI tool globally
-npm install -g remixicon-mcp
-
-# Or run directly with npx
-npx remixicon-mcp
-
-# For development
 pnpm install
-pnpm typecheck
-pnpm test
+
+# Start an HTTP server at http://127.0.0.1:3000/mcp
+pnpm start:http
 ```
 
-### Usage
-
-#### As a Standalone CLI Tool
-
-You can run the MCP server directly via stdio for testing or integration:
+Keep the server running, then configure a URL-capable MCP client with `http://127.0.0.1:3000/mcp`. For Claude Code:
 
 ```bash
-# Run with npx
-npx remixicon-mcp
-
-# Or if installed globally
-remixicon-mcp
+claude mcp add --transport http remix-icon http://127.0.0.1:3000/mcp
 ```
 
-## Platform Setup
+To use stdio instead:
 
-### Claude Desktop
+```bash
+pnpm start
+```
 
-**Configuration**
-Add the following to your `claude_desktop_config.json`:
+### CLI and configuration
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+With the CLI installed, stdio remains the default:
+
+```bash
+remixicon-mcp
+remixicon-mcp --transport http --host 127.0.0.1 --port 3000
+```
+
+The same options work when running this checkout directly:
+
+```bash
+pnpm exec tsx src/index.ts --transport http --host 127.0.0.1 --port 3000
+```
+
+| CLI option | Environment variable | Default |
+| --- | --- | --- |
+| `--transport` | `MCP_TRANSPORT` | `stdio` |
+| `--host` | `MCP_HOST` | `127.0.0.1` |
+| `--port` | `MCP_PORT` | `3000` |
+
+CLI options override environment variables. For Node HTTP, `MCP_ALLOWED_ORIGINS` optionally accepts comma-separated exact browser origins, such as `https://icons.example.com,http://localhost:5173`. Origins include the scheme and optional port, without a path or trailing slash. Same-origin requests and native clients without an `Origin` header are accepted by default; other browser origins are rejected.
+
+The default host accepts local connections. To accept connections from other machines, explicitly set `--host 0.0.0.0`. This is public icon search with no authentication. If you expose it externally, configure TLS and any required access controls through your reverse proxy.
+
+### HTTP endpoints
+
+| Endpoint | Methods | Behavior |
+| --- | --- | --- |
+| `/mcp` | `POST`, `OPTIONS` | MCP requests and browser preflight |
+| `/health` | `GET` | JSON health response |
+
+`POST /mcp` requires `Content-Type: application/json`; request bodies are limited to 16 KiB. `GET /mcp` and `DELETE /mcp` return `405`. There is no legacy `/sse` endpoint or persistent session requirement.
+
+### Published stdio package
+
+The published package can be used by stdio clients:
+
+```bash
+npx -y remixicon-mcp
+```
+
+For Claude Desktop, add this entry to `claude_desktop_config.json` and restart the app:
 
 ```json
 {
@@ -67,76 +104,33 @@ Add the following to your `claude_desktop_config.json`:
 }
 ```
 
-**Setup Steps**
-1. Save the configuration file
-2. Completely quit and restart Claude Desktop
-3. The `search_icons` tool will be available in your conversations
+For Claude Code:
 
-### Claude Code
-
-**Option 1: Marketplace Plugin (Recommended)**
 ```bash
-# In Claude Code, add the marketplace plugin
-/plugin marketplace add Remix-Design/remixicon-mcp
-```
-
-Benefits:
-- Automatic installation and updates
-- Complete plugin metadata and versioning
-- Rich discovery with keywords and categorization
-- Full integration with Claude Code's plugin ecosystem
-
-**Option 2: Manual Configuration**
-```bash
-# Quick command-line setup
 claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
 ```
 
-Or manually add to your project's `.claude/settings.json`:
-```json
-{
-  "mcp": {
-    "servers": {
-      "remix-icon": {
-        "command": "npx",
-        "args": ["-y", "remixicon-mcp"]
-      }
-    }
-  }
-}
-```
+### Cloudflare Workers
 
-**Setup Steps**
-1. Choose one of the installation methods above
-2. Restart Claude Code for the changes to take effect
-3. The `search_icons` tool will be available in your sessions
+The existing hosted endpoint is [RemixIcon MCP](https://remix-icon-mcp.frad.workers.dev/mcp). Configure a URL-capable MCP client with that address, or use:
 
-### Codex
-
-**Configuration**
 ```bash
-# Quick command-line setup
-codex mcp add remixicon -- npx -y remixicon-mcp
+claude mcp add --transport http remix-icon https://remix-icon-mcp.frad.workers.dev/mcp
 ```
 
-**Setup Steps**
-1. Run the installation command above
-2. Restart Codex for the changes to take effect
-3. The `search_icons` tool will be available in your conversations
+The HTTP implementation was deployed and verified on October 24, 2026, with Cloudflare version `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` serving 100% of traffic. Real MCP clients passed modern (`2026-07-28`) and legacy (`2025-11-25`) protocol negotiation, tool discovery, search, and concurrent calls. The reported server version is `1.2.0`; the deployed MCP SDK is `2.3.0`. This records the previous deployment, not the release candidate's dependency audit or deployment status.
 
-## Available Tools
+Use the endpoint in an MCP client. Opening `/mcp` in a browser sends `GET` and returns `405` as expected; use [/health](https://remix-icon-mcp.frad.workers.dev/health) for a browser health check. Future local edits do not update the hosted service until deployment:
 
-The server communicates over stdio using JSON-RPC 2.0 via the official `@modelcontextprotocol/sdk` and exposes a single tool:
+```bash
+pnpm dev       # Local Worker preview
+pnpm run deploy # Publish to Cloudflare Workers
+```
 
-### `search_icons`
+## Tool: `search_icons`
 
-**Input**: `keywords` string (comma-separated, up to 20 keywords)  
-**Output**: Top 5 most relevant icons with metadata  
-**Format**: Human-readable summary + structured metadata
+Input: `keywords`, a nonempty string of up to 200 characters containing up to 20 comma-separated keywords. Use short keywords rather than sentences.
 
-### Example Usage
-
-**JSON-RPC Call:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -144,55 +138,63 @@ The server communicates over stdio using JSON-RPC 2.0 via the official `@modelco
   "method": "tools/call",
   "params": {
     "name": "search_icons",
-    "arguments": {
-      "keywords": "layout, grid, design"
-    }
+    "arguments": { "keywords": "layout, grid, design" }
   }
 }
 ```
 
-**Sample Response:**
-The server returns the top 5 icons that match your keywords, complete with names, categories, and usage information.
+Successful responses include readable `content` and `structuredContent`. The output schema is shared by all transports:
 
-## Project Structure
-
-```
-.
-├── bin/
-│   └── run.cjs                     # CLI entry point for npx execution
-├── src/
-│   ├── cli/                        # CLI runner implementation
-│   ├── bootstrap/                  # Dependency wiring for Clean Architecture boundaries
-│   ├── domain/                     # Icon entities and keyword parser
-│   ├── application/                # Search use case orchestrating validation and ranking
-│   ├── infrastructure/search/      # FlexSearch-backed repository implementation
-│   ├── interface/mcp/              # MCP server built with @modelcontextprotocol/sdk
-│   └── data/tags.json              # Remix Icon tags for search functionality
-├── tests/                          # Vitest suites covering parser and use case behaviour
-├── .claude-plugin/
-│   └── marketplace.json            # Marketplace metadata for Claude Code plugin discovery
-├── package.json                    # pnpm-friendly manifest and scripts
-└── tsconfig.json                   # Strict TypeScript configuration with Node typings
+```typescript
+{
+  guidance: string;
+  matches: Array<{
+    name: string;
+    score: number;
+    category: string;
+    style: string;
+    matchedKeywords: string[];
+  }>;
+}
 ```
 
-## Implementation Notes
+`matches` contains zero to five items. `matches[].name` remains available to existing clients; the additional fields describe ranking and matched catalog tokens. Invalid keyword input returns a tool error. Tool annotations mark the search as read-only and idempotent.
 
-- Keywords are parsed with Unicode-aware boundaries, supporting up to 20 comma-separated keywords while rejecting sentence-style inputs.
-- Enhanced detection differentiates between keyword lists (with delimiters) and natural language sentences (space-separated phrases).
-- FlexSearch indexes icon names, tags, usage, and categories; field weights plus token matches drive deterministic scores.
-- Fixed top-5 results provide focused, relevant matches without configuration complexity.
-- The application layer combines parser validation, repository queries, and response formatting so the interface only handles transport concerns.
-- MCP responses include natural-language guidance and machine-readable matches so LLM clients can choose exactly one icon.
-- CLI runner enables standalone execution via `npx` or global installation for easy integration.
+## Project structure
 
-## Development Scripts
+```text
+bin/run.cjs                    CLI launcher
+src/cli/                       CLI options and process lifecycle
+src/bootstrap/                 Dependency wiring and shared search index
+src/domain/                    Icon entities and keyword parser
+src/application/               Search use case and repository port
+src/infrastructure/            FlexSearch repository and data adapter
+src/interface/mcp/             Shared SDK v2 tool registration
+src/interface/http/            Shared HTTP routes and request checks
+src/data/tags.json             Bundled Remix Icon metadata
+worker/src/index.ts            Cloudflare HTTP entry point
+wrangler.jsonc                 Cloudflare configuration
+tests/                         Unit, transport, and integration tests
+```
+
+## Development
 
 ```bash
-pnpm typecheck   # Strict TypeScript check (tsc --noEmit)
-pnpm test        # Run Vitest suites
-pnpm exec biome check --write --unsafe   # Format + fix code with Biome
+pnpm start        # Node stdio server
+pnpm start:http   # Node HTTP server
+pnpm typecheck    # Node and Worker TypeScript checks
+pnpm test         # Run unit and local integration suites once
+pnpm test:watch   # Watch tests during development
+pnpm run test:e2e:docker # Check the hosted HTTP MCP from Docker
+pnpm lint         # Biome lint with auto-fix
+pnpm format       # Biome formatting
+pnpm build        # Build validation
 ```
+
+The Docker command runs nine HTTP MCP cases against `https://remix-icon-mcp.frad.workers.dev/mcp` using a Linux client: modern and legacy negotiation, discovery, searches, no matches, invalid input recovery, concurrent requests, client isolation, and HTTP guards. Set `MCP_E2E_URL` to test another deployment. It uses locked dependencies, copies no host credentials or modules, and removes its test container after the run. Each run saves `report.json` and `runtime.json` in a separate directory under `.e2e/docker-http/`. These live checks are separate from `pnpm test`.
+
+`src/data/tags.json` is bundled metadata from the [official RemixIcon catalog](https://github.com/Remix-Design/RemixIcon/blob/master/tags.json). To refresh it, update the file from that source, run tests and type checks, and review the changes before publishing a package or deploying a Worker. The server treats this metadata as read-only at runtime.
 
 ## License
 
-[MIT License](LICENSE)
+[MIT](LICENSE)

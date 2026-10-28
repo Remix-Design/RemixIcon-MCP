@@ -1,94 +1,96 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import type { SearchIconsResponse } from "../../application/use-cases/search-icons.usecase";
-import { getSearchIconsUseCase } from "../../bootstrap/search-use-case";
+import { version } from "../../../package.json";
+import type {
+  SearchIconsResponse,
+  SearchIconsUseCase,
+} from "../../application/use-cases/search-icons.usecase";
 
-const TOOL_NAME = "search_icons";
+interface ServerDependencies {
+  readonly getSearchUseCase: () => Promise<Pick<SearchIconsUseCase, "execute">>;
+}
 
-// Define input validation schema once
-const keywordsSchema = z
-  .string()
-  .min(1, "Provide at least one keyword.")
-  .max(200, "Input must stay concise and keyword-only.");
-
-const inputValidationSchema = z.object({
-  keywords: keywordsSchema,
+const inputSchema = z.object({
+  keywords: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      "Up to 20 comma-separated keywords, e.g. 'summer, sun, beach'. Use keywords rather than sentences.",
+    ),
 });
 
-export async function startMcpServer(): Promise<void> {
-  const server = new McpServer({
-    name: "remix-icon-keyword-server",
-    version: "0.3.0",
-  });
+const outputSchema = z.object({
+  guidance: z.string(),
+  matches: z.array(
+    z.object({
+      name: z.string(),
+      score: z.number(),
+      category: z.string(),
+      style: z.string(),
+      matchedKeywords: z.array(z.string()),
+    }),
+  ),
+});
 
-  const useCase = await getSearchIconsUseCase();
-
+export function createIconKeywordServer({
+  getSearchUseCase,
+}: ServerDependencies): McpServer {
+  const server = new McpServer({ name: "remix-icon-keyword-server", version });
   server.registerTool(
-    TOOL_NAME,
+    "search_icons",
     {
       title: "Search Remix Icons by keyword",
       description:
-        "Search Remix Icon metadata using comma-separated keywords (up to 20 keywords). Returns top 5 most relevant icons. Supports both single keywords and keyword lists. Avoid natural language sentences. Returns format: 'icon-name (score)'. Example: 'sun-fill (46.00)'.",
-      inputSchema: {
-        keywords: keywordsSchema.describe(
-          "Comma-separated keywords to search for icons (e.g., 'summer, sun, beach')",
-        ),
+        "Search bundled Remix Icon metadata using up to 20 comma-separated keywords. Returns up to 5 ranked icons with names, scores and matched keywords. Avoid natural language sentences.",
+      inputSchema,
+      outputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
       },
     },
-    async (rawInput) => {
+    async ({ keywords }) => {
       try {
-        const { keywords } = inputValidationSchema.parse(rawInput ?? {});
-        const result = await useCase.execute({ input: keywords });
-        return buildToolResponse(result);
+        const useCase = await getSearchUseCase();
+        return buildToolResponse(await useCase.execute({ input: keywords }));
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown error";
         return {
           isError: true,
           content: [
             {
-              type: "text" as const,
-              text: `Keyword search failed: ${message}`,
+              type: "text",
+              text: `Keyword search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
             },
           ],
         };
       }
     },
   );
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  return server;
 }
 
 function buildToolResponse(result: SearchIconsResponse) {
-  const lines: string[] = [];
-
-  // Add guidance if present (for error cases or single match)
-  if (result.guidance) {
-    lines.push(result.guidance);
-  }
-
-  // Add icon list for multiple matches
+  const lines = result.guidance ? [result.guidance] : [];
   if (result.matches.length > 1) {
-    for (const match of result.matches) {
-      lines.push(`${match.icon.name} (${match.score.toFixed(2)})`);
-    }
-  } else if (result.matches.length === 1) {
-    // Single match is already handled by guidance
+    lines.push(
+      ...result.matches.map(
+        ({ icon, score }) => `${icon.name} (${score.toFixed(2)})`,
+      ),
+    );
   }
-
   return {
-    content: [
-      {
-        type: "text" as const,
-        text: lines.join("\n"),
-      },
-    ],
+    content: [{ type: "text" as const, text: lines.join("\n") }],
     structuredContent: {
       guidance: result.guidance,
-      matches: result.matches.map((match) => ({
-        name: match.icon.name,
+      matches: result.matches.map(({ icon, score, matchedTokens }) => ({
+        name: icon.name,
+        score,
+        category: icon.category,
+        style: icon.style,
+        matchedKeywords: [...matchedTokens],
       })),
     },
   };

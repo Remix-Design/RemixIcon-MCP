@@ -1,68 +1,91 @@
-import { describe, it, expect } from "vitest";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { z } from "zod";
-import { getSearchIconsUseCase } from "../src/bootstrap/search-use-case";
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport } from "@modelcontextprotocol/server";
+import { afterEach, describe, expect, it } from "vitest";
+import { version } from "../package.json";
+import { createIconMcpServer } from "../src/bootstrap/mcp-server";
 
-describe("MCP Server Smoke Test", () => {
-  it("should connect, list tools, and call search_icons", async () => {
-    // 1. Setup Server
-    const server = new McpServer({
-      name: "test-server",
-      version: "1.0.0",
-    });
+describe("MCP server contract", () => {
+  const cleanup: Array<() => Promise<void>> = [];
 
-    const useCase = await getSearchIconsUseCase();
-    const keywordsSchema = z.string().min(1).max(200);
+  afterEach(async () => {
+    await Promise.all(cleanup.splice(0).map((close) => close()));
+  });
 
-    server.registerTool(
-      "search_icons",
-      {
-        title: "Search Remix Icons by keyword",
-        description: "Search icons",
-        inputSchema: {
-          keywords: keywordsSchema.describe("Keywords"),
-        },
-      },
-      async (rawInput) => {
-        const { keywords } = z.object({ keywords: keywordsSchema }).parse(rawInput);
-        const result = await useCase.execute({ input: keywords });
-        return {
-          content: [{ type: "text", text: result.matches.map(m => m.icon.name).join(", ") }]
-        };
-      }
+  async function connect() {
+    const server = createIconMcpServer();
+    const client = new Client({ name: "contract-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    cleanup.push(
+      () => client.close(),
+      () => server.close(),
     );
-
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-
-    // 2. Setup Client
-    const client = new Client(
-      { name: "test-client", version: "1.0.0" },
-      { capabilities: {} }
-    );
-
-    // 3. Connect them
     await server.connect(serverTransport);
     await client.connect(clientTransport);
+    return client;
+  }
 
-    // 4. Verify tools
-    const tools = await client.listTools();
-    expect(tools.tools.some(t => t.name === "search_icons")).toBe(true);
-
-    // 5. Call the tool
-    const result = await client.callTool({ 
-      name: "search_icons", 
-      arguments: { keywords: "home" } 
+  it("exposes the package version, read-only tool and output schema", async () => {
+    const client = await connect();
+    expect(client.getServerVersion()?.version).toBe(version);
+    const { tools } = await client.listTools();
+    expect(tools).toHaveLength(1);
+    expect(tools[0]).toMatchObject({
+      name: "search_icons",
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     });
-    
-    expect(result.content[0].type).toBe("text");
-    if (result.content[0].type === "text") {
-      expect(result.content[0].text).toBeTruthy();
-      // Should contain some home-related icons
-      expect(result.content[0].text.toLowerCase()).toContain("home");
-    }
+    expect(tools[0]?.outputSchema).toBeDefined();
+  });
 
-    await client.close();
+  it("returns ranked metadata and human-readable results", async () => {
+    const client = await connect();
+    const result = await client.callTool({
+      name: "search_icons",
+      arguments: { keywords: "home" },
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.content).toEqual([
+      { type: "text", text: expect.stringContaining("home") },
+    ]);
+    expect(result.structuredContent).toMatchObject({
+      matches: expect.arrayContaining([
+        expect.objectContaining({
+          name: expect.any(String),
+          score: expect.any(Number),
+          category: expect.any(String),
+          style: expect.any(String),
+          matchedKeywords: expect.any(Array),
+        }),
+      ]),
+    });
+  });
+
+  it.each(["", " ", "x".repeat(201), "please show me an icon"])(
+    "rejects invalid keywords: %j",
+    async (keywords) => {
+      const client = await connect();
+      const result = await client.callTool({
+        name: "search_icons",
+        arguments: { keywords },
+      });
+      expect(result.isError).toBe(true);
+    },
+  );
+
+  it("returns helpful guidance for no matches", async () => {
+    const client = await connect();
+    const result = await client.callTool({
+      name: "search_icons",
+      arguments: { keywords: "zzzxxyyqqq" },
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      matches: [],
+      guidance: expect.stringContaining("No icons matched"),
+    });
   });
 });

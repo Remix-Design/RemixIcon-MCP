@@ -22,17 +22,12 @@ export class SearchIconsUseCase {
   private readonly repository: IconSearchRepository;
   private readonly parser: KeywordParser;
 
-  constructor({
-    repository,
-    parser,
-  }: SearchIconsUseCaseDependencies) {
+  constructor({ repository, parser }: SearchIconsUseCaseDependencies) {
     this.repository = repository;
     this.parser = parser;
   }
 
-  async execute({
-    input,
-  }: SearchIconsRequest): Promise<SearchIconsResponse> {
+  async execute({ input }: SearchIconsRequest): Promise<SearchIconsResponse> {
     const keywords = this.parser.parse(input);
     const matches = await this.repository.search(keywords, FIXED_LIMIT);
 

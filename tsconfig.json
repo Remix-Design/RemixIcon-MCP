@@ -10,9 +10,9 @@
     "jsx": "react-jsx",
 
     /* Specify what module code is generated. */
-    "module": "commonjs",
+    "module": "esnext",
     /* Specify how TypeScript looks up a file from a given module specifier. */
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     /* Specify type package names to be included without being referenced in a source file. */
     "types": ["node"],
     /* Enable importing .json files */
@@ -39,6 +39,6 @@
     /* Skip type checking all .d.ts files. */
     "skipLibCheck": true
   },
-  "exclude": ["test"],
+  "exclude": ["test", "worker"],
   "include": ["src/**/*.ts"]
 }

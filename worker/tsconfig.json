@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "lib": [
+      "es2021"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [
+      "@cloudflare/workers-types"
+    ],
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "../src/**/*.ts",
+    "./**/*.ts"
+  ],
+  "exclude": [
+    "../src/cli",
+    "../src/index.ts",
+    "../src/bootstrap/server-options.ts",
+    "../src/bootstrap/start-server.ts",
+    "../src/interface/http/node-http-server.ts",
+    "../src/interface/mcp/stdio-server.ts"
+  ]
+}
