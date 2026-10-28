@@ -14,17 +14,16 @@
 - 先对所有匹配候选评分，再选取最相关的结果。
 - HTTP 支持当前 MCP 协议及 2025 年版 Streamable HTTP 客户端。当前协议请求返回 JSON，旧版请求使用请求范围内的 SSE；无独立 SSE 端点或持久会话。
 
-## 2.0.0 发布候选与迁移
+## 2.0.0 迁移
 
-当前源码正在准备 2.0.0，尚未发布或部署。准备时 GitHub 最新发布为 1.2.0，npm 的 `latest` 仍为 1.1.0。下方不带版本号的 `npx` 命令运行已发布包，而非此候选版本。
+安装后的 CLI 需要 Node.js 20 或更高版本。完整源码开发与测试流程需要 Node.js 22.12 或更高版本；Wrangler 部署工具需要 Node.js 22 或更高版本。
 
-- 将安装后的 CLI 运行环境从 Node.js 18 升级到 Node.js 20 或更高版本；完整源码开发与测试流程需要 Node.js 22.12 或更高版本；Wrangler 部署工具本身需要 Node.js 22 或更高版本。
 - 原有 stdio 客户端配置可以保留，默认仍使用 stdio；通过 `--transport http` 或 MCP URL 显式使用 HTTP。
 - 继续读取 `matches[].name`；结构化结果额外包含得分、分类、样式和命中关键词。
 - 服务器使用 MCP SDK v2。HTTP 支持新旧 Streamable HTTP 协议协商，但不提供旧式独立 `/sse` 端点或持久会话。
-- npm 发布和 Worker 部署分别执行；已有托管端点在另行部署前仍报告 1.2.0。
+- Worker 部署与 npm 发布分别执行；已有托管端点在另行部署前仍报告 1.2.0。
 
-版本变化见 [CHANGELOG.md](CHANGELOG.md)，准备范围与验证说明见源码中的 [RELEASE.md](RELEASE.md)。
+变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 从源码快速启动
 

@@ -2,7 +2,7 @@
 
 ## Authoritative guidance
 
-Follow [AGENTS.md](AGENTS.md) for repository conventions. Read [README.md](README.md) for CLI and HTTP contracts, [CHANGELOG.md](CHANGELOG.md) for changes, and [RELEASE.md](RELEASE.md) when preparing or verifying a release.
+Follow [AGENTS.md](AGENTS.md) for repository conventions. Read [README.md](README.md) for CLI and HTTP contracts and [CHANGELOG.md](CHANGELOG.md) for changes.
 
 ## Commands
 
@@ -19,9 +19,9 @@ pnpm audit
 pnpm audit --prod
 ```
 
-`pnpm test` runs once. `pnpm test:watch` starts watch mode. `pnpm test:e2e:docker` runs live HTTP tests against the configured endpoint; set `MCP_E2E_URL` to a local candidate when validating unreleased changes. The default endpoint is a deployed service, not the checkout.
+`pnpm test` runs once. `pnpm test:watch` starts watch mode. `pnpm test:e2e:docker` runs live HTTP tests against the configured endpoint; set `MCP_E2E_URL` to a local server when validating source changes. The default endpoint is the deployed service, not the checkout.
 
-The installed CLI runtime requires Node.js 20 or later. The complete source-development and test workflow requires Node.js 22.12 or later because the locked Vite toolchain requires it. Wrangler deployment tooling itself requires Node.js 22 or later.
+The 2.0.0 installed CLI runtime requires Node.js 20 or later. The complete source-development and test workflow requires Node.js 22.12 or later because the locked Vite toolchain requires it. Wrangler deployment tooling itself requires Node.js 22 or later.
 
 ## Architecture
 
@@ -51,4 +51,4 @@ Score all candidates before applying the result limit. Load the catalog once per
 
 The npm package contains the executable, TypeScript runtime source, bundled metadata, license, README files, changelog, and release notes. Verify the tarball outside the checkout with production dependencies only. Do not infer package correctness from source tests alone.
 
-`pnpm dev` runs a local Worker preview. `pnpm deploy` writes to Cloudflare and requires explicit authorization. npm publication, remote branch updates, release tags, and Worker deployment are separate operations; preparation does not authorize them. Never claim the hosted endpoint has an unreleased source version.
+`pnpm dev` runs a local Worker preview. `pnpm deploy` writes to Cloudflare and requires explicit authorization. npm publication and GitHub release tagging/publication are separate release operations; Worker deployment remains separate. Never claim the hosted endpoint has an unreleased source version.
