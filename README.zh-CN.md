@@ -14,9 +14,21 @@
 - 先对所有匹配候选评分，再选取最相关的结果。
 - HTTP 支持当前 MCP 协议及 2025 年版 Streamable HTTP 客户端。当前协议请求返回 JSON，旧版请求使用请求范围内的 SSE；无独立 SSE 端点或持久会话。
 
+## 2.0.0 发布候选与迁移
+
+当前源码正在准备 2.0.0，尚未发布或部署。准备时 GitHub 最新发布为 1.2.0，npm 的 `latest` 仍为 1.1.0。下方不带版本号的 `npx` 命令运行已发布包，而非此候选版本。
+
+- 将安装后的 CLI 运行环境从 Node.js 18 升级到 Node.js 20 或更高版本；完整源码开发与测试流程需要 Node.js 22.12 或更高版本；Wrangler 部署工具本身需要 Node.js 22 或更高版本。
+- 原有 stdio 客户端配置可以保留，默认仍使用 stdio；通过 `--transport http` 或 MCP URL 显式使用 HTTP。
+- 继续读取 `matches[].name`；结构化结果额外包含得分、分类、样式和命中关键词。
+- 服务器使用 MCP SDK v2。HTTP 支持新旧 Streamable HTTP 协议协商，但不提供旧式独立 `/sse` 端点或持久会话。
+- npm 发布和 Worker 部署分别执行；已有托管端点在另行部署前仍报告 1.2.0。
+
+版本变化见 [CHANGELOG.md](CHANGELOG.md)，准备范围与验证说明见源码中的 [RELEASE.md](RELEASE.md)。
+
 ## 从源码快速启动
 
-源码开发和 Cloudflare 部署需要 Node.js 22 或更高版本及 pnpm。安装后的 CLI 运行时支持 Node.js 20 或更高版本。以下说明针对当前源码。npm 发布与 Worker 部署分别执行。
+完整源码开发与测试流程请使用 Node.js 22.12 或更高版本及 pnpm；Wrangler 本身需要 Node.js 22 或更高版本。安装后的 CLI 运行时支持 Node.js 20 或更高版本。以下说明针对当前源码。npm 发布与 Worker 部署分别执行。
 
 ```bash
 pnpm install
@@ -106,7 +118,7 @@ claude mcp add --transport stdio remixicon -- npx -y remixicon-mcp
 claude mcp add --transport http remix-icon https://remix-icon-mcp.frad.workers.dev/mcp
 ```
 
-HTTP 实现已于 2026 年 10 月 24 日部署并完成线上验证。Cloudflare 版本 `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` 承接 100% 流量；真实 MCP 客户端的新协议（`2026-07-28`）及旧协议（`2025-11-25`）协商、工具发现、搜索和并发调用均通过。服务报告版本为 `1.2.0`，部署的 MCP SDK 为包含当前安全修复的 `2.3.0`。
+HTTP 实现已于 2026 年 10 月 24 日部署并完成线上验证。Cloudflare 版本 `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` 承接 100% 流量；真实 MCP 客户端的新协议（`2026-07-28`）及旧协议（`2025-11-25`）协商、工具发现、搜索和并发调用均通过。服务报告版本为 `1.2.0`，部署的 MCP SDK 为 `2.3.0`。这记录的是上次部署，不代表本次候选版本已部署或其依赖审计结果。
 
 请在 MCP 客户端中使用该端点。浏览器直接打开 `/mcp` 会发送 `GET` 并按预期返回 `405`；浏览器健康检查可访问 [/health](https://remix-icon-mcp.frad.workers.dev/health)。后续本地修改需要再次部署才会更新托管服务：
 

@@ -1,6 +1,6 @@
 {
 	"name": "remixicon-mcp",
-	"version": "1.2.0",
+	"version": "2.0.0",
 	"description": "Lightweight MCP server that maps icon keywords to Remix Icon metadata.",
 	"main": "src/index.ts",
 	"repository": {
@@ -32,6 +32,8 @@
 		"src/",
 		"README.md",
 		"README.zh-CN.md",
+		"CHANGELOG.md",
+		"RELEASE.md",
 		"LICENSE"
 	],
 	"engines": {
@@ -53,18 +55,18 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.7",
-		"@cloudflare/workers-types": "^5.20261022.1",
+		"@cloudflare/workers-types": "^5.20261027.1",
 		"@modelcontextprotocol/client": "2.3.0",
 		"@types/node": "^26.1.2",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.12",
-		"wrangler": "^4.152.0"
+		"wrangler": "^4.154.0"
 	},
 	"dependencies": {
 		"@hono/node-server": "^2.1.5",
 		"@modelcontextprotocol/server": "2.3.0",
 		"flexsearch": "^0.8.212",
 		"tsx": "^4.23.9",
-		"zod": "^4.4.3"
+		"zod": "^4.6.7"
 	}
 }

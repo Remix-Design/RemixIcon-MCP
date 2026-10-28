@@ -7,22 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - Unreleased release candidate
+
 ### Added
 - Local Node.js Streamable HTTP mode through `--transport http` and `pnpm start:http`, with configurable host, port, and exact browser origins.
 - Shared HTTP routes for MCP requests, preflight, and health checks, with a 16 KiB request limit and host/origin checks.
 - Structured tool output schemas and read-only, idempotent annotations across all transports.
-- Regression coverage for HTTP behavior, shared tool contracts, and search candidate ranking.
+- Regression coverage for HTTP behavior, shared tool contracts, search candidate ranking, release metadata, and npm package contents.
 
 ### Changed
 - Unified stdio, Node HTTP, and Cloudflare Workers on MCP SDK v2 while preserving the stdio default and `matches[].name` output field.
 - Added scores, categories, styles, and matched keywords to structured results.
-- Required Node.js 20 or later.
+- Required Node.js 20 or later for the installed CLI and Node.js 22.12 or later for the complete source-development and test workflow.
 - Made `pnpm test` run once; added `pnpm test:watch` for watch mode.
 - Documented local HTTP setup and the distinction between source changes and deployed or published versions.
 
 ### Fixed
 - Rank all matching icons before applying the result limit, so stronger matches are not excluded by preliminary index ordering.
 - Update the MCP SDK, test runner, deployment tools, and affected transitive dependencies to patched versions. Keep the test toolchain on Vite 7 and document the deployment tooling's Node.js 22 minimum.
+- Upgrade Zod to 4.6.7 and Wrangler to 4.154.0, which uses patched Undici 7.30.1 through Miniflare.
 
 
 ## [1.2.0] - 2026-03-10
@@ -191,6 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - English and Chinese text processing
 
 [Unreleased]: https://github.com/Remix-Design/RemixIcon-MCP/compare/v1.2.0...HEAD
+[2.0.0]: https://github.com/Remix-Design/RemixIcon-MCP/compare/v1.2.0...release/2.0.0
 [1.2.0]: https://github.com/Remix-Design/RemixIcon-MCP/compare/v1.1.0...v1.2.0
 [1.0.1]: https://github.com/Remix-Design/RemixIcon-MCP/compare/v0.4.0...v1.0.1
 [0.4.0]: https://github.com/fradser/mcp-server-remix-icon/compare/v0.3.2...v0.4.0

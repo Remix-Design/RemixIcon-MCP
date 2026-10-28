@@ -2,6 +2,11 @@ allowBuilds:
   esbuild: true
   workerd: true
 
+# Use the patched Wrangler/Miniflare pair without a broad release-age bypass.
+minimumReleaseAgeExclude:
+  - miniflare@5.20261023.1-beta
+  - wrangler@4.154.0
+
 # Keep the test toolchain on patched Vite 7 releases.
 overrides:
   vite: ^7.3.7

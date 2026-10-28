@@ -19,7 +19,6 @@ tests/
 # Documentation (keep only essential ones)
 AGENTS.md
 CLAUDE.md
-CHANGELOG.md
 
 # CI/CD
 .github/

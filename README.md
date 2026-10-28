@@ -14,9 +14,21 @@ A Model Context Protocol (MCP) server that maps short keywords to Remix Icon nam
 - Scores all matching candidates before selecting the top results.
 - HTTP supports current MCP and legacy 2025 Streamable HTTP clients. Modern requests receive JSON responses; legacy requests use request-scoped SSE. There is no standalone SSE endpoint or persistent session.
 
+## 2.0.0 release candidate and migration
+
+This checkout prepares 2.0.0; it has not been published or deployed. At preparation time, GitHub's latest release is 1.2.0 and npm's `latest` is 1.1.0. Unversioned `npx` commands below run the published package, not this candidate.
+
+- Upgrade the installed CLI runtime from Node.js 18 to Node.js 20 or later. The complete source-development and test workflow requires Node.js 22.12 or later. Wrangler deployment tooling requires Node.js 22 or later.
+- Keep existing stdio client configurations; stdio remains the default. HTTP is opt-in through `--transport http` or a configured MCP URL.
+- Keep reading `matches[].name`. Structured results also include scores, categories, styles, and matched keywords.
+- The server uses MCP SDK v2. HTTP supports modern and legacy Streamable HTTP negotiation, but not the old standalone `/sse` transport or persistent sessions.
+- Package publication and Worker deployment are independent. The existing hosted endpoint continues to report 1.2.0 until separately deployed.
+
+See [CHANGELOG.md](CHANGELOG.md) for release changes and [RELEASE.md](RELEASE.md) in the source checkout for preparation and verification details.
+
 ## Quick start from source
 
-Requires Node.js 22 or later and pnpm for source development and Cloudflare deployment. The installed CLI runtime supports Node.js 20 or later. These instructions describe this checkout. npm publication and Worker deployment are separate operations.
+Use Node.js 22.12 or later and pnpm for the complete source-development and test workflow. Wrangler itself requires Node.js 22 or later. The installed CLI runtime supports Node.js 20 or later. These instructions describe this checkout. npm publication and Worker deployment are separate operations.
 
 ```bash
 pnpm install
@@ -106,7 +118,7 @@ The existing hosted endpoint is [RemixIcon MCP](https://remix-icon-mcp.frad.work
 claude mcp add --transport http remix-icon https://remix-icon-mcp.frad.workers.dev/mcp
 ```
 
-The HTTP implementation was deployed and verified on October 24, 2026, with Cloudflare version `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` serving 100% of traffic. Real MCP clients passed modern (`2026-07-28`) and legacy (`2025-11-25`) protocol negotiation, tool discovery, search, and concurrent calls. The reported server version is `1.2.0`; the deployed MCP SDK is `2.3.0`, including the current security fixes.
+The HTTP implementation was deployed and verified on October 24, 2026, with Cloudflare version `1a2ca18e-d7a6-4910-ac2f-c6d318aa407e` serving 100% of traffic. Real MCP clients passed modern (`2026-07-28`) and legacy (`2025-11-25`) protocol negotiation, tool discovery, search, and concurrent calls. The reported server version is `1.2.0`; the deployed MCP SDK is `2.3.0`. This records the previous deployment, not the release candidate's dependency audit or deployment status.
 
 Use the endpoint in an MCP client. Opening `/mcp` in a browser sends `GET` and returns `405` as expected; use [/health](https://remix-icon-mcp.frad.workers.dev/health) for a browser health check. Future local edits do not update the hosted service until deployment:
 
