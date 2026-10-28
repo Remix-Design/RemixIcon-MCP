@@ -25,7 +25,7 @@ The baseline includes HTTP support and an intentional MCP SDK v2 migration, but 
 - Given modern and legacy HTTP clients, when the candidate handles requests, then existing search, errors, client isolation, concurrency, and HTTP guards pass the established tests.
 - Given the candidate's frozen lockfile, when production and complete dependency audits run, then they report no known vulnerabilities at verification time.
 - Given a release candidate but no deployment, when documentation describes the hosted endpoint, then it retains the existing deployment version and does not claim the candidate is live.
-- Given preparation-only authorization, when preparation finishes, then no remote branches, tags, registry package, or deployment are changed.
+- Given authorization to prepare a draft PR, when the PR is opened, then only the release branch is pushed to support review; no other remote branch, release tag, registry package, or deployment is changed.
 
 ## Implementation decisions
 
