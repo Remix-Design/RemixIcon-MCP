@@ -1,0 +1,7 @@
+scopes:
+    - name: bin
+      description: executable scripts in bin/; does not cover source code in src/
+    - name: src
+      description: application code, domain logic, and infrastructure in src/; does not cover tests
+    - name: tests
+      description: test suites and integration tests in tests/; does not cover source implementation
