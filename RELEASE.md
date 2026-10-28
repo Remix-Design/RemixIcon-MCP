@@ -1,14 +1,14 @@
-# RemixIcon MCP 2.0.0 release preparation
+# RemixIcon MCP 2.0.0 release information
 
 ## Scope and authorization
 
-Prepare the 2.0.0 candidate from the HTTP/MCP v2 branch and open a draft pull request to `main` for review. The release branch may be pushed for that PR. Stop before merging, creating tags or GitHub releases, publishing to npm, deploying Workers, or deleting branches unless separately authorized. The baseline is `ff819c43a128536e3799c50318435bdc84f7839e`.
+The HTTP/MCP v2 changes were reviewed in draft PR #24 and merged to `main` on 2026-10-28 as commit `0a8da2d954585dd3eba3ebc852a8d7e1c082c30c`. Version 2.0.0 is merged to `main`. The changelog release date will be set to the actual publication date. npm registry availability depends on package publication; this document records source and package verification, not registry status. The reviewed source change does not deploy the Worker. The original source baseline is `ff819c43a128536e3799c50318435bdc84f7839e`.
 
-## Problem and solution
+## Release contents
 
-The baseline includes HTTP support and an intentional MCP SDK v2 migration, but its package identifies version 1.2.0. At preparation time, GitHub's latest release is 1.2.0 and npm's latest version is 1.1.0. This candidate identifies version 2.0.0 because the runtime minimum changes from Node.js 18 to 20. It updates affected dependencies and verifies the actual package before publication.
+The HTTP/MCP v2 source includes a breaking MCP SDK v2 migration and sets the installed CLI runtime minimum to Node.js 20. It updates affected dependencies and includes a package-verified CLI distribution. At PR #24 merge time, GitHub's latest release was 1.2.0 and npm's latest version was 1.1.0.
 
-## User stories
+## Release goals
 
 1. As a maintainer, I want matching package and plugin versions so consumers identify the release correctly.
 2. As a CLI user, I want the npm tarball to include its runtime source and metadata so it works without a checkout or development dependencies.
@@ -20,12 +20,12 @@ The baseline includes HTTP support and an intentional MCP SDK v2 migration, but 
 
 ## Acceptance scenarios
 
-- Given the 2.0.0 candidate, when package and plugin metadata are read, then both identify version 2.0.0.
+- Given the 2.0.0 package, when package and plugin metadata are read, then both identify version 2.0.0.
 - Given the packed release installed outside this repository with production dependencies only, when its CLI runs under supported Node.js versions, then stdio and HTTP clients discover and call search_icons successfully and receive server version 2.0.0.
 - Given modern and legacy HTTP clients, when the candidate handles requests, then existing search, errors, client isolation, concurrency, and HTTP guards pass the established tests.
-- Given the candidate's frozen lockfile, when production and complete dependency audits run, then they report no known vulnerabilities at verification time.
-- Given a release candidate but no deployment, when documentation describes the hosted endpoint, then it retains the existing deployment version and does not claim the candidate is live.
-- Given authorization to prepare a draft PR, when the PR is opened, then only the release branch is pushed to support review; no other remote branch, release tag, registry package, or deployment is changed.
+- Given the merged source's frozen lockfile, when production and complete dependency audits run, then they report no known vulnerabilities at verification time.
+- Given the source release is merged but not deployed, when documentation describes the hosted endpoint, then it retains the existing deployment version and does not claim the new source is live.
+- Given PR #24 is merged, when the merge completes, then no npm package, GitHub release tag, or Worker deployment is changed by the merge itself.
 
 ## Implementation decisions
 
@@ -33,24 +33,25 @@ Retain the existing SDK v2 server, default stdio transport, HTTP routes, search 
 
 ## Testing decisions
 
-Use the existing CLI transport tests as the highest public seam. Extend those tests for release identity and actual tarball contents; rerun them against an isolated production installation. Keep domain and Worker regression suites unchanged unless dependency compatibility requires a demonstrated repair. Run independent Linux Docker HTTP cases against the local candidate, never the old hosted service. Validate frozen installation, typecheck, lint, formatting, build, production/full audits, and package contents. Check documentation links and migration facts.
+Use the existing CLI transport tests as the highest public seam. Extend those tests for release identity and actual tarball contents; rerun them against an isolated production installation. Keep domain and Worker regression suites unchanged unless dependency compatibility requires a demonstrated repair. Run independent Linux Docker HTTP cases against the local source package, never the old hosted service. Validate frozen installation, typecheck, lint, formatting, build, production/full audits, and package contents. Check documentation links and migration facts.
 
-## Out of scope
+## Separate operations
 
-Merging the draft PR, release tags, GitHub release creation, npm publication, Worker deployment, branch cleanup, new UI, catalog refresh, and feature redesign.
+Worker deployment is outside this release task. Publishing the npm package does not update the existing hosted Worker.
 
 ## Verification results
 
 Local checks on October 28, 2026:
 
-- Frozen installation, typecheck, all 52 tests, lint, format, build, and peer checks passed. Typecheck and all 52 tests also passed with the Node.js 22.12.0 runtime on macOS/arm64; Docker checks used Node.js 24 on Linux/arm64.
+- Frozen installation, typecheck, all 52 tests, lint, format, build, and peer checks passed on the merged source. Typecheck and all 52 tests also passed with the Node.js 22.12.0 runtime on macOS/arm64; Docker checks used Node.js 24 on Linux/arm64.
 - Full and production dependency audits reported zero known vulnerabilities. This is a time-specific advisory check, not proof of zero security risk.
 - Zod is 4.6.7. Wrangler 4.154.0 uses Miniflare 5.20261023.1-beta and Undici 7.30.1. The release-age exceptions are limited to that Wrangler/Miniflare pair.
-- Five CLI/package tests passed against the tarball installed outside the checkout with production dependencies only, using Node.js 20.0.0 and 24.16.0. The same tests check version identity, package contents, legacy and modern stdio, and HTTP concurrent clients.
-- Independent Docker HTTP tests passed 9/9 against the local candidate on Linux/arm64, including input errors, client isolation, concurrency, and request guards. No hosted endpoint was used.
+- Five CLI/package tests passed against the final main-based tarball installed outside the checkout with production dependencies only, using Node.js 20.0.0 and 24.16.0. The same tests check version identity, package contents, legacy and modern stdio, and HTTP concurrent clients.
+- Independent Docker HTTP tests passed 9/9 against the local source on Linux/arm64, including input errors, client isolation, concurrency, and request guards. A separate hosted check confirmed the existing Worker still reports 1.2.0; no Worker deployment was included.
 - The tarball includes runtime TypeScript, the icon catalog, both README files, changelog, release notes, and license. Tests, Worker deployment files, development modules, and credential paths are excluded.
+- At the final registry check, version 2.0.0 was absent. npm authentication returned E401; the verified tarball is ready to publish once an authorized npm session is available.
 
-Independent review is a final delivery gate. Local candidate preparation does not update npm, release tags, GitHub releases, or Worker deployments. The separately authorized draft PR is for review only; it does not authorize merging or publishing.
+The source change was independently reviewed with Standards PASS and Spec PASS. The final main-based package was regenerated and verified after the merge.
 
 ## Reproduce package checks
 
@@ -71,8 +72,8 @@ Install the tarball in an empty temporary project with production dependencies o
 
 Run Docker cases with `MCP_E2E_URL` pointing to the local candidate. Do not use the default hosted endpoint to validate a source version that is not deployed.
 
-## Publication handoff
+## npm publication
 
-Before a separately authorized publication, integrate and review the release branch through the repository's normal process, set the actual changelog release date, and rerun the checks. Update candidate-status documentation when publication succeeds. Verify that version 2.0.0 is still unused on npm. Create the release tag and GitHub release only from the approved revision. Publish the inspected tarball rather than an unrelated checkout. Verify registry version, installed CLI behavior, and release metadata after publication.
+The inspected version 2.0.0 package is ready for npm publication. npm currently returns E401 Unauthorized from `npm whoami`, so publishing must resume after package-owner authentication. Then recheck registry version availability, publish the inspected tarball from the merged source, and verify registry version, tarball integrity, and installed CLI behavior.
 
 Worker deployment is separate. Deploy only with explicit authorization, then verify the reported server version and both MCP protocol eras before updating deployment claims. Do not claim the existing hosted 1.2.0 service runs this candidate.
