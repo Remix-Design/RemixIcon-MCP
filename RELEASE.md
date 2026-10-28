@@ -49,7 +49,7 @@ Local checks on October 28, 2026:
 - Five CLI/package tests passed against the final main-based tarball installed outside the checkout with production dependencies only, using Node.js 20.0.0 and 24.16.0. The same tests check version identity, package contents, legacy and modern stdio, and HTTP concurrent clients.
 - Independent Docker HTTP tests passed 9/9 against the local source on Linux/arm64, including input errors, client isolation, concurrency, and request guards. A separate hosted check confirmed the existing Worker still reports 1.2.0; no Worker deployment was included.
 - The tarball includes runtime TypeScript, the icon catalog, both README files, changelog, release notes, and license. Tests, Worker deployment files, development modules, and credential paths are excluded.
-- At the final registry check, version 2.0.0 was absent. npm authentication returned E401; the verified tarball is ready to publish once an authorized npm session is available.
+- npm account `fradser` authenticated successfully; version 2.0.0 was absent from the registry before publication.
 
 The source change was independently reviewed with Standards PASS and Spec PASS. The final main-based package was regenerated and verified after the merge.
 
@@ -74,6 +74,6 @@ Run Docker cases with `MCP_E2E_URL` pointing to the local candidate. Do not use 
 
 ## npm publication
 
-The inspected version 2.0.0 package is ready for npm publication. npm currently returns E401 Unauthorized from `npm whoami`, so publishing must resume after package-owner authentication. Then recheck registry version availability, publish the inspected tarball from the merged source, and verify registry version, tarball integrity, and installed CLI behavior.
+The inspected version 2.0.0 package is ready for npm publication. Recheck registry version availability, publish the inspected tarball from the merged source, and verify registry version, tarball integrity, and installed CLI behavior.
 
 Worker deployment is separate. Deploy only with explicit authorization, then verify the reported server version and both MCP protocol eras before updating deployment claims. Do not claim the existing hosted 1.2.0 service runs this candidate.
